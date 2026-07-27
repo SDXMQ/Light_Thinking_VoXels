@@ -1,7 +1,7 @@
 #ifndef IRRADIANCECACHE
 #define IRRADIANCECACHE
 bool isInRange(vec3 vxPos) {
-    return all(greaterThan(vxPos, -0.5*voxelVolumeSize)) && all(lessThan(vxPos, 0.5*voxelVolumeSize));
+    return all(lessThan(abs(vxPos), 0.5 * voxelVolumeSize));
 }
 
 uniform sampler3D irradianceCache;
