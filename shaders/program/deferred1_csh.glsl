@@ -151,13 +151,15 @@ void main() {
             vec4 texture6 = texelFetch(colortex6, coord, 0);
             for (int k = 0; k < 10; k++) {
                 ivec2 newCoord = ivec2(coord * 0.5 + 0.5 + 0.8 * randomGaussian());
-                vec3 aroundReflection = texelFetch(colortex10, newCoord, 0).rgb;
                 vec3 aroundNormal = texelFetch(colortex5, newCoord << 1, 0).rgb;
                 vec4 aroundTexture6 = texelFetch(colortex6, newCoord << 1, 0);
-                float thisWeight = exp(
-                    -10 * dot(normalM - aroundNormal, normalM - aroundNormal)
-                    - 10 * dot(texture6 - aroundTexture6, texture6 - aroundTexture6)
-                );
+                vec3 normDiff = normalM - aroundNormal;
+                vec4 texDiff = texture6 - aroundTexture6;
+                float diffSqSum = dot(normDiff, normDiff) + dot(texDiff, texDiff);
+                if (diffSqSum > 0.921) continue;
+
+                vec3 aroundReflection = texelFetch(colortex10, newCoord, 0).rgb;
+                float thisWeight = exp(-10.0 * diffSqSum);
                 filteredReflection += thisWeight * vec4(aroundReflection, 1);
             }
         }

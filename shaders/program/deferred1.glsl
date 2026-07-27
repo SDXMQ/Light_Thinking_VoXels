@@ -48,11 +48,20 @@ float GetLinearDepth(float depth) {
 }
 
 #if SSAO_QUALI > 0
-    vec2 OffsetDist(float x, int s) {
-        float n = fract(x * 1.414) * 6.2831853;
-        vec2 dir = vec2(cos(n), sin(n));
-        return (dir * dir) * pow2(x / s);
-    }
+    const vec2 ssaoBaseDir[12] = vec2[12](
+        vec2(-0.857216,  0.514959),
+        vec2( 0.469786, -0.882782),
+        vec2( 0.050247,  0.998737),
+        vec2(-0.567086, -0.823659),
+        vec2( 0.904827,  0.425779),
+        vec2(-0.996195,  0.087156),
+        vec2( 0.803730, -0.595000),
+        vec2(-0.378518,  0.925593),
+        vec2(-0.158158, -0.987414),
+        vec2( 0.637424,  0.770513),
+        vec2(-0.937282, -0.348574),
+        vec2( 0.981885, -0.189478)
+    );
 
     float DoAmbientOcclusion(float z0, float linearZ0, float dither) {
         if (z0 < 0.56) return 1.0;
@@ -73,8 +82,14 @@ float GetLinearDepth(float depth) {
         float distScale = max(farMinusNear * linearZ0 + near, 3.0);
         vec2 scale = vec2(scm / aspectRatio, scm) * fovScale / distScale;
 
+        float rotAngle = fract(dither * 1.414) * 6.2831853;
+        vec2 rot = vec2(cos(rotAngle), sin(rotAngle));
+
         for (int i = 1; i <= samples; i++) {
-            vec2 offset = OffsetDist(i + dither, samples) * scale;
+            vec2 baseD = ssaoBaseDir[i - 1];
+            vec2 dir = vec2(baseD.x * rot.x - baseD.y * rot.y, baseD.y * rot.x + baseD.x * rot.y);
+            float ratio = float(i) / float(samples);
+            vec2 offset = (dir * dir) * (ratio * ratio) * scale;
             if (i % 2 == 0) offset.y = -offset.y;
 
             vec2 coord1 = texCoord + offset;

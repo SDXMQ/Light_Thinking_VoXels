@@ -212,9 +212,15 @@ void main() {
         vec4 col = textureLod(tex, texCoord, 0);
 
         vec2 readSize = min(abs(dFdx(texCoord)), abs(dFdy(texCoord)));
+        const vec2 offsets[4] = vec2[4](
+            vec2(-0.25, -0.25),
+            vec2( 0.25, -0.25),
+            vec2(-0.25,  0.25),
+            vec2( 0.25,  0.25)
+        );
         for (int k = 0; k < 4; k++) {
-            vec2 offset = vec2(k%2, k/2%2) * 0.5 - 0.25;
-            vec4 col2 = textureLod(tex, texCoord + offset * readSize, 0);
+            if (col.a >= 0.999) break;
+            vec4 col2 = textureLod(tex, texCoord + offsets[k] * readSize, 0);
             if (col2.a > col.a) col = col2;
         }
         col.rgb *= glColor.rgb;
