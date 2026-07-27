@@ -313,10 +313,11 @@ void main() {
             float ndotl0 = infnorm(vxPos - 0.5 * normal - lightPos) < 0.5 || !hasNeighbor ? 1.0 :
                 max(0, (dot(normalize(lightPos - vxPos + 0.5 * normal), normal)));
             vec3 dir = lightPos - vxPos;
-            float dirLen = length(dir);
-            float thisTraceLen = (extraData[thisLightIndex]>>17 & 31)/32.0;
-            if (dirLen < thisTraceLen * LIGHT_TRACE_LENGTH && ndotl0 > 0.001) {
-                float lightBrightness = 1.5 * thisTraceLen;
+            float dirLenSq = dot(dir, dir);
+            float maxTraceLen = ((extraData[thisLightIndex]>>17 & 31)/32.0) * LIGHT_TRACE_LENGTH;
+            if (dirLenSq < maxTraceLen * maxTraceLen && ndotl0 > 0.001) {
+                float dirLen = sqrt(dirLenSq);
+                float lightBrightness = 1.5 * ((extraData[thisLightIndex]>>17 & 31)/32.0);
                 lightBrightness *= lightBrightness;
                 float ndotl = ndotl0 * lightBrightness;
                 vec4 rayHit1 = coneTrace(vxPos, (1.0 - 0.1 / (dirLen + 0.1)) * dir, 0.4 / dirLen, dither);
@@ -336,7 +337,7 @@ void main() {
                     #endif
                     vec3 lightColor = lightCols[thisLightIndex];
                     float totalBrightness = ndotl
-                        * distanceFalloff(dirLen / (thisTraceLen * LIGHT_TRACE_LENGTH))
+                        * distanceFalloff(dirLen / maxTraceLen)
                         * lightBrightness;
                     writeColor += lightColor
                     #ifdef TRANSLUCENT_LIGHT_TINT
@@ -518,11 +519,7 @@ void main() {
                     #endif
                     vec3 hitCol = vec3(0);
                     if (length(hitPos - vxPos) < LIGHT_TRACE_LENGTH - 0.5 && infnorm(hitPos / voxelVolumeSize) < 0.5) {
-                        vec3 hitNormal = vec3(0);
-                        for (int k = 0; k < 3; k++) {
-                            hitNormal[k] = getDistanceField(hitPos + mat3(0.5)[k]) - getDistanceField(hitPos - mat3(0.5)[k]);
-                        }
-                        hitNormal = normalize(hitNormal);
+                        vec3 hitNormal = normalize(distanceFieldGradient(hitPos));
                         vec3 hitBlocklight = imageLoad(irradianceCacheI, ivec3(hitPos + 0.5 * hitNormal + vec3(0.5, 1.5, 0.5) * voxelVolumeSize)).rgb;
                         vec4 hitGIColor = imageLoad(irradianceCacheI, ivec3(hitPos + 0.5 * hitNormal + 0.5 * voxelVolumeSize - vec3(0.5)));
                         vec3 hitGIlight = hitGIColor.rgb / max(hitGIColor.a, 0.0001);

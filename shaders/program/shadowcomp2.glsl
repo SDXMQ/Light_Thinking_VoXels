@@ -39,17 +39,23 @@ void main() {
         bool hadAnyBlocks = false;
         float attenuationCoeff = vec4(0.994, 0.983, 0.95, 0.9)[lodIndex];
         if (all(greaterThan(pos0.xz, -0.5 * voxelVolumeSize.xz + 5)) && all(lessThan(pos0.xz, 0.5 * voxelVolumeSize.xz - 5))) {
+            ivec2 baseXZ = ivec2(pos0.xz + voxelVolumeSize.xz/2);
             for (int k = voxelVolumeSize.y - 1; k >= 0; k--) {
-                ivec3 coords = ivec3(pos0.xz + voxelVolumeSize.xz/2, k).xzy;
-                int waterData = imageLoad(voxelCols, coords * ivec3(1, 2, 1)).r >> 26;
+                ivec3 coords = ivec3(baseXZ.x, k, baseXZ.y);
+                ivec3 colCoord = coords * ivec3(1, 2, 1);
+                int waterData = imageLoad(voxelCols, colCoord).r >> 26;
                 if ((waterData & 1) == 1) {
                     waterHeight = coords.y - voxelVolumeSize.y/2;
                     pos0.y = waterHeight + 0.5;
                     hadAnyBlocks = true;
                     break;
                 }
-                if (!hadAnyBlocks && (imageLoad(occupancyVolume, coords).r & 1) != 0) {
+                int occData = imageLoad(occupancyVolume, coords).r;
+                if (!hadAnyBlocks && (occData & 1) != 0) {
                     hadAnyBlocks = true;
+                }
+                if (occData == 0 && !hadAnyBlocks && k > 4) {
+                    k -= 1; // Skip unoccupied vertical steps
                 }
             }
         } else {

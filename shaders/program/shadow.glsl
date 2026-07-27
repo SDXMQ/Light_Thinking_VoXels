@@ -38,11 +38,18 @@ float sunVisibility = clamp(SdotU + 0.0625, 0.0, 0.125) / 0.125;
 //Common Functions//
 void DoNaturalShadowCalculation(inout vec4 color1, inout vec4 color2) {
     color1.rgb *= glColor.rgb;
-    color1.rgb = mix(vec3(1.0), color1.rgb, pow(color1.a, (1.0 - color1.a) * 0.5) * 1.05);
-    color1.rgb *= 1.0 - pow(color1.a, 64.0);
+    if (color1.a > 0.999) {
+        color1.rgb = vec3(0.0);
+        color2.rgb = vec3(0.0);
+        return;
+    }
+    if (color1.a > 0.001) {
+        color1.rgb = mix(vec3(1.0), color1.rgb, pow(color1.a, (1.0 - color1.a) * 0.5) * 1.05);
+        color1.rgb *= 1.0 - pow(color1.a, 64.0);
+    }
     color1.rgb *= 0.2; // Natural Strength
 
-    color2.rgb = normalize(color1.rgb) * 0.5;
+    color2.rgb = normalize(color1.rgb + 1e-6) * 0.5;
 }
 
 //Includes//
