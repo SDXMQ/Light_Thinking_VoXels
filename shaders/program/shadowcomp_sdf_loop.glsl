@@ -63,19 +63,35 @@
             if (prevDist < (levelFadeDist*1.5)/(1<<j)) {
             #endif
 
-            for (int k = 0; k < 27; k++) {
-                ivec3 c2 = localCoord + ivec3(k%3, k/3%3, k/9%3);
-                theseDists[j] = min(theseDists[j], fullDist[c2.x][c2.y][c2.z]);
-                #if SDF_UPDATE_INTERVAL == 0
-                    ivec3 c3 = localCoord + 2 * ivec3(k%3, k/3%3, k/9%3) - 1;
-                    theseDists[j] = min(
-                        theseDists[j],
-                        all(greaterThanEqual(c3, ivec3(0))) &&
-                        all(lessThan(c3, ivec3(10))) ?
-                        fullDist[c3.x][c3.y][c3.z] + 1.0/(1<<j) : 1000
-                    );
-                #endif
+            // 3-axis separable filter for 3D min reduction (27-tap -> 9-tap)
+            float minXYZ = 10000.0;
+            for (int dz = 0; dz < 3; dz++) {
+                float minY = 10000.0;
+                for (int dy = 0; dy < 3; dy++) {
+                    ivec3 baseC = localCoord + ivec3(0, dy, dz);
+                    float minX = min(fullDist[baseC.x][baseC.y][baseC.z],
+                                 min(fullDist[baseC.x + 1][baseC.y][baseC.z],
+                                     fullDist[baseC.x + 2][baseC.y][baseC.z]));
+                    minY = min(minY, minX);
+                }
+                minXYZ = min(minXYZ, minY);
             }
+            theseDists[j] = min(theseDists[j], minXYZ);
+
+            #if SDF_UPDATE_INTERVAL == 0
+                float minXYZ_ext = 10000.0;
+                for (int dz = 0; dz < 3; dz++) {
+                    for (int dy = 0; dy < 3; dy++) {
+                        for (int dx = 0; dx < 3; dx++) {
+                            ivec3 c3 = localCoord + 2 * ivec3(dx, dy, dz) - 1;
+                            if (all(greaterThanEqual(c3, ivec3(0))) && all(lessThan(c3, ivec3(10)))) {
+                                minXYZ_ext = min(minXYZ_ext, fullDist[c3.x][c3.y][c3.z] + 1.0/(1<<j));
+                            }
+                        }
+                    }
+                }
+                theseDists[j] = min(theseDists[j], minXYZ_ext);
+            #endif
             #if j > 0
                 if (prevDist > levelFadeDist/(1<<j)) {
                     theseDists[j] = mix(theseDists[j], prevDist, prevDist * (1<<j) / (0.5 * levelFadeDist) - 2.0);
