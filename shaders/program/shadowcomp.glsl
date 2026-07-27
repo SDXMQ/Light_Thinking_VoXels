@@ -177,10 +177,10 @@ void main() {
     memoryBarrierShared();
     if (lights[index] != -1) {
         for (int k = index + 1; k < lightCount; k++) {
-            vec3 diffK = lightLocs[k] - lightLocs[index];
+            vec3 diffK = vec3(lightLocs[k].xyz - lightLocs[index].xyz);
             if (dot(diffK, diffK) < 1.21) {
                 for (int l = index + 1; l < k; l++) {
-                    vec3 diffL = lightLocs[l] - lightLocs[k];
+                    vec3 diffL = vec3(lightLocs[l].xyz - lightLocs[k].xyz);
                     if (dot(diffL, diffL) < 1.21) {
                         atomicExchange(lights[l], -1);
                     }

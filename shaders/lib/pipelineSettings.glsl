@@ -15,11 +15,11 @@ const int colortex12Format= RGBA16F;        //block lighting
 const int colortex13Format= RGBA16F;        //raw specular lighting
 const int colortex14Format= RGBA16F;        //specular lighting
 
-const float colortex10Scale = 0.5;
-const float colortex11Scale = 0.5;
-
 const int shadowcolor2Format = RGBA16f;     //interactive water (low detail)
 */
+
+const float colortex10Scale = 0.5;
+const float colortex11Scale = 0.5;
 
 const bool colortex0Clear = true;
 const bool colortex1Clear = false;

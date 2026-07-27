@@ -54,9 +54,6 @@ void main() {
                 if (!hadAnyBlocks && (occData & 1) != 0) {
                     hadAnyBlocks = true;
                 }
-                if (occData == 0 && !hadAnyBlocks && k > 4) {
-                    k -= 1; // Skip unoccupied vertical steps
-                }
             }
         } else {
             attenuationCoeff = attenuationCoeff * 2.0 - 1.0;

@@ -3,9 +3,9 @@
         #if SDF_UPDATE_INTERVAL > 1
             bool isCameraMoving = any(greaterThan(abs(floorCamPosOffset), ivec3(0)));
             uint gridHash = gl_WorkGroupID.x ^ gl_WorkGroupID.y ^ gl_WorkGroupID.z ^ uint(frameCounter);
-            isActive = (isCameraMoving || (gridHash % uint(SDF_UPDATE_INTERVAL) == 0u)) ? 1u : 0u;
+            isActive = (isCameraMoving || (gridHash % uint(SDF_UPDATE_INTERVAL) == 0u)) ? 0u : 1u;
         #else
-            isActive = 1u;
+            isActive = 0u;
         #endif
     }
     barrier();
