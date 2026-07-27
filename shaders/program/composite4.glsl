@@ -28,14 +28,12 @@ vec3 BloomTile(float lod, vec2 offset, vec2 scaledCoord) {
 
     if (abs(coord.x - 0.5) < padding && abs(coord.y - 0.5) < padding) {
         for (int i = -3; i <= 3; i++) {
-            for (int j = -3; j <= 3; j++) {
-                float wg = weight[i + 3] * weight[j + 3];
-                vec2 pixelOffset = vec2(i, j) / view;
-                vec2 bloomCoord = (scaledCoord - offset + pixelOffset) * scale;
-                bloom += texture2D(colortex0, bloomCoord).rgb * wg;
-            }
+            float wg = weight[i + 3];
+            vec2 pixelOffset = vec2(float(i), 0.0) / view;
+            vec2 bloomCoord = (scaledCoord - offset + pixelOffset) * scale;
+            bloom += texture2D(colortex0, bloomCoord).rgb * wg;
         }
-        bloom /= 4096.0;
+        bloom /= 64.0;
     }
 
     return pow(bloom / 128.0, vec3(0.25));

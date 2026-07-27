@@ -52,16 +52,23 @@ void DoBSLColorSaturation(inout vec3 color) {
 }
 
 #ifdef BLOOM
+    float bloomWeight[7] = float[7](1.0, 6.0, 15.0, 20.0, 15.0, 6.0, 1.0);
     vec2 rescale = max(vec2(viewWidth, viewHeight) / vec2(1920.0, 1080.0), vec2(1.0));
     vec3 GetBloomTile(float lod, vec2 coord, vec2 offset) {
         float scale = exp2(lod);
-        vec2 bloomCoord = coord / scale + offset;
-        bloomCoord = clamp(bloomCoord, offset, 1.0 / scale + offset);
+        vec3 bloomAcc = vec3(0.0);
+        for (int j = -3; j <= 3; j++) {
+            vec2 pixelOffset = vec2(0.0, float(j)) / view;
+            vec2 bloomCoord = (coord + pixelOffset) / scale + offset;
+            bloomCoord = clamp(bloomCoord, offset, 1.0 / scale + offset);
 
-        vec3 bloom = texture2D(colortex3, bloomCoord / rescale).rgb;
-        bloom *= bloom;
-        bloom *= bloom;
-        return bloom * 128.0;
+            vec3 bSample = texture2D(colortex3, bloomCoord / rescale).rgb;
+            bSample *= bSample;
+            bSample *= bSample;
+            bloomAcc += bSample * bloomWeight[j + 3];
+        }
+        bloomAcc /= 64.0;
+        return bloomAcc * 128.0;
     }
 
     void DoBloom(inout vec3 color, vec2 coord, float dither, float lViewPos) {
