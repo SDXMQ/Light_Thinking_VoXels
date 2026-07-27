@@ -211,18 +211,34 @@ void main() {
     } else {
         vec4 col = textureLod(tex, texCoord, 0);
 
-        vec2 readSize = min(abs(dFdx(texCoord)), abs(dFdy(texCoord)));
-        const vec2 offsets[4] = vec2[4](
-            vec2(-0.25, -0.25),
-            vec2( 0.25, -0.25),
-            vec2(-0.25,  0.25),
-            vec2( 0.25,  0.25)
-        );
-        for (int k = 0; k < 4; k++) {
-            if (col.a >= 0.999) break;
-            vec4 col2 = textureLod(tex, texCoord + offsets[k] * readSize, 0);
-            if (col2.a > col.a) col = col2;
-        }
+        #if __VERSION__ >= 400
+            if (col.a < 0.999) {
+                vec4 alphas = textureGather(tex, texCoord, 3);
+                float maxAlpha = max(max(alphas.x, alphas.y), max(alphas.z, alphas.w));
+                if (maxAlpha > col.a) {
+                    const vec2 offsets[4] = vec2[4](
+                        vec2(-0.25, -0.25), vec2( 0.25, -0.25),
+                        vec2(-0.25,  0.25), vec2( 0.25,  0.25)
+                    );
+                    vec2 readSize = min(abs(dFdx(texCoord)), abs(dFdy(texCoord)));
+                    for (int k = 0; k < 4; k++) {
+                        vec4 col2 = textureLod(tex, texCoord + offsets[k] * readSize, 0);
+                        if (col2.a > col.a) col = col2;
+                    }
+                }
+            }
+        #else
+            vec2 readSize = min(abs(dFdx(texCoord)), abs(dFdy(texCoord)));
+            const vec2 offsets[4] = vec2[4](
+                vec2(-0.25, -0.25), vec2( 0.25, -0.25),
+                vec2(-0.25,  0.25), vec2( 0.25,  0.25)
+            );
+            for (int k = 0; k < 4; k++) {
+                if (col.a >= 0.999) break;
+                vec4 col2 = textureLod(tex, texCoord + offsets[k] * readSize, 0);
+                if (col2.a > col.a) col = col2;
+            }
+        #endif
         col.rgb *= glColor.rgb;
         bool doTransparency = renderStage != MC_RENDER_STAGE_ENTITIES;
         if (col.a > (doTransparency ? 0.1 : 0.5)) {

@@ -136,7 +136,8 @@ void main() {
     vec4 colorP = texture2D(tex, texCoord);
     vec4 color = colorP * vec4(glColor.rgb, 1.0);
 
-    vec3 screenPos = vec3(gl_FragCoord.xy / vec2(viewWidth, viewHeight), gl_FragCoord.z);
+    vec2 invViewSize = 1.0 / vec2(viewWidth, viewHeight);
+    vec3 screenPos = vec3(gl_FragCoord.xy * invViewSize, gl_FragCoord.z);
     #ifdef TAA
         vec3 viewPos = ScreenToView(vec3(TAAJitter(screenPos.xy, -0.5), screenPos.z));
     #else

@@ -175,15 +175,18 @@ void main() {
     }
     barrier();
     memoryBarrierShared();
-    int aroundLightCount = 1;
-    for (int k = index + 1; k < lightCount; k++) {
-        if (length(lightLocs[k] - lightLocs[index]) < 1.1) {
-            for (int l = index + 1; l < k; l++) {
-                if (length(lightLocs[l] - lightLocs[k]) < 1.1) {
-                    atomicExchange(lights[l], -1);
+    if (lights[index] != -1) {
+        for (int k = index + 1; k < lightCount; k++) {
+            vec3 diffK = lightLocs[k] - lightLocs[index];
+            if (dot(diffK, diffK) < 1.21) {
+                for (int l = index + 1; l < k; l++) {
+                    vec3 diffL = lightLocs[l] - lightLocs[k];
+                    if (dot(diffL, diffL) < 1.21) {
+                        atomicExchange(lights[l], -1);
+                    }
                 }
+                atomicExchange(lights[k], -1);
             }
-            atomicExchange(lights[k], -1);
         }
     }
     barrier();

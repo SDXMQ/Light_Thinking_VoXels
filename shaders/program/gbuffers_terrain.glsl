@@ -195,7 +195,8 @@ void main() {
         albedo.r = texelFetch(colortex4, ivec2(gl_FragCoord.xy), 0).r;
     }
 
-    vec3 screenPos = vec3(gl_FragCoord.xy / vec2(viewWidth, viewHeight), gl_FragCoord.z);
+    vec2 invViewSize = 1.0 / vec2(viewWidth, viewHeight);
+    vec3 screenPos = vec3(gl_FragCoord.xy * invViewSize, gl_FragCoord.z);
     #ifdef TAA
         vec3 viewPos = ScreenToView(vec3(TAAJitter(screenPos.xy, -0.5), screenPos.z));
     #else
