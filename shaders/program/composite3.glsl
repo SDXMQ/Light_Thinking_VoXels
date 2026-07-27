@@ -130,11 +130,6 @@ void main() {
     #if WORLD_BLUR > 0
         float z1 = texelFetch(depthtex1, texelCoord, 0).r;
         float z0 = texelFetch(depthtex0, texelCoord, 0).r;
-        if (z1 >= 1.0) {
-            /* DRAWBUFFERS:0 */
-            gl_FragData[0] = vec4(color, 1.0);
-            return;
-        }
 
         vec4 screenPos = vec4(texCoord, z0, 1.0);
         vec4 viewPos = gbufferProjectionInverse * (screenPos * 2.0 - 1.0);
