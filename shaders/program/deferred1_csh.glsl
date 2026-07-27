@@ -151,6 +151,9 @@ void main() {
             vec4 texture6 = texelFetch(colortex6, coord, 0);
             for (int k = 0; k < 10; k++) {
                 ivec2 newCoord = ivec2(coord * 0.5 + 0.5 + 0.8 * randomGaussian());
+                float depthAround = texelFetch(depthtex0, newCoord << 1, 0).r;
+                if (abs(z0 - depthAround) > 0.01) continue;
+
                 vec3 aroundNormal = texelFetch(colortex5, newCoord << 1, 0).rgb;
                 vec4 aroundTexture6 = texelFetch(colortex6, newCoord << 1, 0);
                 vec3 normDiff = normalM - aroundNormal;
