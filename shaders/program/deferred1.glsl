@@ -49,8 +49,9 @@ float GetLinearDepth(float depth) {
 
 #if SSAO_QUALI > 0
     vec2 OffsetDist(float x, int s) {
-        float n = fract(x * 1.414) * 3.1415;
-        return pow2(vec2(cos(n), sin(n)) * x / s);
+        float n = fract(x * 1.414) * 6.2831853;
+        vec2 dir = vec2(cos(n), sin(n));
+        return (dir * dir) * pow2(x / s);
     }
 
     float DoAmbientOcclusion(float z0, float linearZ0, float dither) {

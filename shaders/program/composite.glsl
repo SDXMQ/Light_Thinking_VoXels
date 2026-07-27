@@ -119,17 +119,19 @@ void main() {
         DoRefraction(color, z0, z1, viewPos.xyz, lViewPos);
     #endif
 
-    vec4 screenPos1 = vec4(texCoord, z1, 1.0);
-    vec4 viewPos1 = gbufferProjectionInverse * (screenPos1 * 2.0 - 1.0);
-    viewPos1 /= viewPos1.w;
-    float lViewPos1 = length(viewPos1.xyz);
+    #if defined LIGHTSHAFTS_ACTIVE || RAINBOWS > 0 && defined OVERWORLD || defined NETHER_STORM || defined COLORED_LIGHT_FOG
+        vec4 screenPos1 = vec4(texCoord, z1, 1.0);
+        vec4 viewPos1 = gbufferProjectionInverse * (screenPos1 * 2.0 - 1.0);
+        viewPos1 /= viewPos1.w;
+        float lViewPos1 = length(viewPos1.xyz);
 
-    #if defined DISTANT_HORIZONS && !defined OVERWORLD
-        float z1DH = texelFetch(dhDepthTex1, texelCoord, 0).r;
-        vec4 screenPos1DH = vec4(texCoord, z1DH, 1.0);
-        vec4 viewPos1DH = dhProjectionInverse * (screenPos1DH * 2.0 - 1.0);
-        viewPos1DH /= viewPos1DH.w;
-        lViewPos1 = min(lViewPos1, length(viewPos1DH.xyz));
+        #if defined DISTANT_HORIZONS && !defined OVERWORLD
+            float z1DH = texelFetch(dhDepthTex1, texelCoord, 0).r;
+            vec4 screenPos1DH = vec4(texCoord, z1DH, 1.0);
+            vec4 viewPos1DH = dhProjectionInverse * (screenPos1DH * 2.0 - 1.0);
+            viewPos1DH /= viewPos1DH.w;
+            lViewPos1 = min(lViewPos1, length(viewPos1DH.xyz));
+        #endif
     #endif
 
     #if defined LIGHTSHAFTS_ACTIVE || RAINBOWS > 0 && defined OVERWORLD
