@@ -141,6 +141,14 @@ void main() {
         #ifdef BLOCKLIGHT_HIGHLIGHT
             vec3[2] specularBounds = vec3[2](vec3(10000), vec3(0));
         #endif
+        const float phi = 1.618033988749895;
+        const float phi2 = 2.618033988749895;
+        const float phi3 = 4.236067977499790;
+        const float phi4 = 6.854101966249685;
+        const float phi5 = 11.090169943749475;
+        const float phi6 = 17.944271910000000;
+        vec2 frameJitter = vec2(float(frameCounter % 1000) * phi, float(frameCounter % 1000) * phi2);
+
         for (int k = 0; k < 8; k++) {
             vec2 texCoordOffset = randomGaussian() * 0.8;
             ivec2 c = ivec2(localLrTexCoord + texCoordOffset);
@@ -148,15 +156,12 @@ void main() {
                 vec2 coffset
                     = ivec2(
                         BLOCKLIGHT_RESOLUTION
-                        * fract(vec2(
-                            frameCounter % 1000 * 1.618033988749895,
-                            frameCounter % 1000 * 1.618033988749895 * 1.618033988749895
+                        * fract(frameJitter + vec2(
+                            float(c.x + lowerBound.x) * phi3,
+                            float(c.x + lowerBound.x) * phi4
                         ) + vec2(
-                            (c.x + lowerBound.x) * 1.618033988749895 * 1.618033988749895 * 1.618033988749895,
-                            (c.x + lowerBound.x) * 1.618033988749895 * 1.618033988749895 * 1.618033988749895 * 1.618033988749895
-                        ) + vec2(
-                            (c.y + lowerBound.y) * 1.618033988749895 * 1.618033988749895 * 1.618033988749895 * 1.618033988749895 * 1.618033988749895,
-                            (c.y + lowerBound.y) * 1.618033988749895 * 1.618033988749895 * 1.618033988749895 * 1.618033988749895 * 1.618033988749895 * 1.618033988749895
+                            float(c.y + lowerBound.y) * phi5,
+                            float(c.y + lowerBound.y) * phi6
                         ))
                     ) / float(BLOCKLIGHT_RESOLUTION);
                 texCoordOffset = c + coffset - localLrTexCoord;

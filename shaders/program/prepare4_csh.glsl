@@ -128,11 +128,16 @@ float distanceFalloff(float maxDistRelDist) {
     );
 }
 
+const ivec3 neighborOffsets[6] = ivec3[6](
+    ivec3(-1, 0, 0), ivec3(0, -1, 0), ivec3(0, 0, -1),
+    ivec3(1, 0, 0),  ivec3(0, 1, 0),  ivec3(0, 0, 1)
+);
+
 void registerLight(ivec3 lightCoord, vec3 referencePos, vec3 referenceNormal, float weight) {
     bool isStillLight = (imageLoad(occupancyVolume, lightCoord + voxelVolumeSize/2).r >> 16 & 1) != 0;
     if (!isStillLight) {
         for (int k = 0; k < 6; k++) {
-            ivec3 offset = (k/3*2-1) * ivec3(equal(ivec3(k%3), ivec3(0, 1, 2)));
+            ivec3 offset = neighborOffsets[k];
             if ((imageLoad(occupancyVolume, lightCoord + offset + voxelVolumeSize/2).r >> 16 & 1) != 0) {
                 isStillLight = true;
                 lightCoord += offset;
@@ -140,7 +145,8 @@ void registerLight(ivec3 lightCoord, vec3 referencePos, vec3 referenceNormal, fl
             }
         }
     }
-    uint hash = posToHash(lightCoord) % uint(128*32);
+    uint pHash = posToHash(lightCoord);
+    uint hash = pHash % uint(128*32);
     bool known = !isStillLight;
     if (isStillLight) {
         known = (atomicOr(lightHashMap[hash/32], uint(1)<<hash%32) & uint(1)<<hash%32) != 0;
@@ -149,9 +155,9 @@ void registerLight(ivec3 lightCoord, vec3 referencePos, vec3 referenceNormal, fl
     if (!known) {
         int lightIndex = atomicAdd(lightCount, 1);
         if (lightIndex < MAX_LIGHT_COUNT) {
-            uint hash = posToHash(lightCoord) % uint(1<<18);
-            uvec2 packedLightSubPos = uvec2(globalLightHashMap[4*hash], globalLightHashMap[4*hash+1]);
-            uvec2 packedLightCol = uvec2(globalLightHashMap[4*hash+2], globalLightHashMap[4*hash+3]);
+            uint gHash = pHash % uint(1<<18);
+            uvec2 packedLightSubPos = uvec2(globalLightHashMap[4*gHash], globalLightHashMap[4*gHash+1]);
+            uvec2 packedLightCol = uvec2(globalLightHashMap[4*gHash+2], globalLightHashMap[4*gHash+3]);
             int thisLightExtraData = imageLoad(occupancyVolume, lightCoord + voxelVolumeSize/2).r;
             vec3 subLightPos = (packedLightSubPos.y >> 16) == 0 ? vec3(0.5) : 1.0/32.0 * vec3(packedLightSubPos.x & 0xffff, packedLightSubPos.x>>16, packedLightSubPos.y & 0xffff) / (packedLightSubPos.y >> 16) - 1;
             vec3 lightCol = 1.0/32.0 * vec3(packedLightCol.x & 0xffff, packedLightCol.x>>16, packedLightCol.y & 0xffff) / (packedLightSubPos.y >> 16);

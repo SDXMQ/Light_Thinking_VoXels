@@ -17,11 +17,11 @@ float getDistanceField(vec3 pos) {
 
 vec3 distanceFieldGradient(vec3 pos) {
     const float epsilon = 0.5/(1<<VOXEL_DETAIL_AMOUNT);
-    vec3 grad;
-    for (int k = 0; k < 3; k++) {
-        grad[k] = (getDistanceField(pos + mat3(0.5*epsilon)[k]) - getDistanceField(pos - mat3(0.5*epsilon)[k])) / epsilon;
-    }
-    return grad;
+    const vec2 k = vec2(1.0, -1.0);
+    return (k.xyy * getDistanceField(pos + k.xyy * 0.5 * epsilon) +
+            k.yyx * getDistanceField(pos + k.yyx * 0.5 * epsilon) +
+            k.yxy * getDistanceField(pos + k.yxy * 0.5 * epsilon) +
+            k.xxx * getDistanceField(pos + k.xxx * 0.5 * epsilon)) / epsilon;
 }
 
 vec4 getColor(vec3 pos) {
@@ -29,9 +29,10 @@ vec4 getColor(vec3 pos) {
     if (any(lessThan(coords, ivec3(0))) || any(greaterThanEqual(coords, voxelVolumeSize))) {
         return vec4(0);
     }
+    ivec3 colCoord = coords * ivec3(1, 2, 1);
     ivec2 rawCol = ivec2(
-        imageLoad(voxelCols, coords * ivec3(1, 2, 1)).r,
-        imageLoad(voxelCols, coords * ivec3(1, 2, 1) + ivec3(0, 1, 0)).r
+        imageLoad(voxelCols, colCoord).r,
+        imageLoad(voxelCols, colCoord + ivec3(0, 1, 0)).r
     );
     vec4 col = vec4(
         rawCol.r % (1<<13),
