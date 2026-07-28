@@ -1,250 +1,94 @@
-// N>1
+// Intra-warp Bitonic Sort (N <= 16) - Executed in lockstep within subgroup without inter-step barriers
 if (participateInSorting) {
+    // N>1
     flipPair(index, 0);
-}
-barrier();
-memoryBarrierShared();
 
-
-// N>2
-if (participateInSorting) {
+    // N>2
     flipPair(index, 1);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 0);
-}
-barrier();
-memoryBarrierShared();
 
-
-// N>4
-if (participateInSorting) {
+    // N>4
     flipPair(index, 2);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 1);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 0);
-}
-barrier();
-memoryBarrierShared();
 
-
-// N>8
-if (participateInSorting) {
+    // N>8
     flipPair(index, 3);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 2);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 1);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 0);
-}
-barrier();
-memoryBarrierShared();
 
-
-// N>16
-if (participateInSorting) {
+    // N>16
     flipPair(index, 4);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 3);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 2);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 1);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 0);
 }
 barrier();
-memoryBarrierShared();
 
-
+// Inter-warp Bitonic Sort (N > 16)
 // N>32
-if (participateInSorting) {
-    flipPair(index, 5);
-}
+if (participateInSorting) { flipPair(index, 5); }
 barrier();
-memoryBarrierShared();
-if (participateInSorting) {
-    dispersePair(index, 4);
-}
+if (participateInSorting) { dispersePair(index, 4); }
 barrier();
-memoryBarrierShared();
 if (participateInSorting) {
     dispersePair(index, 3);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 2);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 1);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 0);
 }
 barrier();
-memoryBarrierShared();
-
 
 // N>64
-if (participateInSorting) {
-    flipPair(index, 6);
-}
+if (participateInSorting) { flipPair(index, 6); }
 barrier();
-memoryBarrierShared();
-if (participateInSorting) {
-    dispersePair(index, 5);
-}
+if (participateInSorting) { dispersePair(index, 5); }
 barrier();
-memoryBarrierShared();
-if (participateInSorting) {
-    dispersePair(index, 4);
-}
+if (participateInSorting) { dispersePair(index, 4); }
 barrier();
-memoryBarrierShared();
 if (participateInSorting) {
     dispersePair(index, 3);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 2);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 1);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 0);
 }
 barrier();
-memoryBarrierShared();
-
 
 // N>128
-if (participateInSorting) {
-    flipPair(index, 7);
-}
+if (participateInSorting) { flipPair(index, 7); }
 barrier();
-memoryBarrierShared();
-if (participateInSorting) {
-    dispersePair(index, 6);
-}
+if (participateInSorting) { dispersePair(index, 6); }
 barrier();
-memoryBarrierShared();
-if (participateInSorting) {
-    dispersePair(index, 5);
-}
+if (participateInSorting) { dispersePair(index, 5); }
 barrier();
-memoryBarrierShared();
-if (participateInSorting) {
-    dispersePair(index, 4);
-}
+if (participateInSorting) { dispersePair(index, 4); }
 barrier();
-memoryBarrierShared();
 if (participateInSorting) {
     dispersePair(index, 3);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 2);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 1);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 0);
 }
 barrier();
-memoryBarrierShared();
-
 
 // N>256
-if (participateInSorting) {
-    flipPair(index, 8);
-}
+if (participateInSorting) { flipPair(index, 8); }
 barrier();
-memoryBarrierShared();
-if (participateInSorting) {
-    dispersePair(index, 7);
-}
+if (participateInSorting) { dispersePair(index, 7); }
 barrier();
-memoryBarrierShared();
-if (participateInSorting) {
-    dispersePair(index, 6);
-}
+if (participateInSorting) { dispersePair(index, 6); }
 barrier();
-memoryBarrierShared();
-if (participateInSorting) {
-    dispersePair(index, 5);
-}
+if (participateInSorting) { dispersePair(index, 5); }
 barrier();
-memoryBarrierShared();
-if (participateInSorting) {
-    dispersePair(index, 4);
-}
+if (participateInSorting) { dispersePair(index, 4); }
 barrier();
-memoryBarrierShared();
 if (participateInSorting) {
     dispersePair(index, 3);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 2);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 1);
-}
-barrier();
-memoryBarrierShared();
-if (participateInSorting) {
     dispersePair(index, 0);
 }
 barrier();
-memoryBarrierShared();
+
