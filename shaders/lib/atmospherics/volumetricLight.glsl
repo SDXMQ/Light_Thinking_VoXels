@@ -59,7 +59,7 @@ vec4 GetVolumetricLight(inout vec3 color, inout float vlFactor, vec3 translucent
             vlColor = normalize(pow(vlColor, vec3(1.0 - max0(1.0 - 1.5 * nightFactor))));
             vlColor *= 0.0766 + 0.0766 * vsBrightness;
         } else {
-            vlColorReducer = 1.0 / sqrt(vlColor);
+            vlColorReducer = inversesqrt(vlColor);
         }
 
         #ifdef SPECIAL_PALE_GARDEN_LIGHTSHAFTS
@@ -159,7 +159,7 @@ vec4 GetVolumetricLight(inout vec3 color, inout float vlFactor, vec3 translucent
         #if SHADOW_QUALITY > -1
             vec4 wpos = shadowStart + shadowDir * currentDist;
             wpos /= wpos.w;
-            float distb = sqrt(wpos.x * wpos.x + wpos.y * wpos.y);
+            float distb = length(wpos.xy);
             float distortFactor = 1.0 - shadowMapBias + distb * shadowMapBias;
             vec4 shadowPosition = DistortShadow(wpos,distortFactor);
             //shadowPosition.z += 0.0001;
@@ -232,7 +232,7 @@ vec4 GetVolumetricLight(inout vec3 color, inout float vlFactor, vec3 translucent
 
     #ifdef LIGHTSHAFT_SMOKE
         volumetricLight *= pow(totalSmoke / volumetricLight.a, min(1.0 - volumetricLight.a, 0.5));
-        volumetricLight.rgb /= pow(0.5, 1.0 - volumetricLight.a);
+        volumetricLight.rgb *= exp2(1.0 - volumetricLight.a);
     #endif
 
     // Decision of Intensity for Scene Aware Light Shafts //

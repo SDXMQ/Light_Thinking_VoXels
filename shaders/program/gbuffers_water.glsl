@@ -166,7 +166,7 @@ void main() {
 
     float materialMask = 0.0;
 
-    vec3 nViewPos = normalize(viewPos);
+    vec3 nViewPos = viewPos / lViewPos;
     float VdotU = dot(nViewPos, upVec);
     float VdotS = dot(nViewPos, sunVec);
     float VdotN = dot(nViewPos, normal);

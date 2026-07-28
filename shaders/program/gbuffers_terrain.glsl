@@ -203,7 +203,7 @@ void main() {
         vec3 viewPos = ScreenToView(screenPos);
     #endif
     float lViewPos = length(viewPos);
-    vec3 nViewPos = normalize(viewPos);
+    vec3 nViewPos = viewPos / lViewPos;
     vec3 playerPos = vertexPos;
 
     float dither = Bayer64(gl_FragCoord.xy);

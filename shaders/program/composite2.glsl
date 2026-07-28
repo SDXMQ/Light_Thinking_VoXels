@@ -21,7 +21,8 @@
 //Common Variables//
 #if defined MOTION_BLURRING && defined BLOOM_FOG_COMPOSITE2
     float SdotU = dot(sunVec, upVec);
-    float sunFactor = SdotU < 0.0 ? clamp(SdotU + 0.375, 0.0, 0.75) / 0.75 : clamp(SdotU + 0.03125, 0.0, 0.0625) / 0.0625;
+    float sunFactor = SdotU < 0.0 ? clamp(SdotU * 1.33333333 + 0.5, 0.0, 1.0) : clamp(SdotU * 16.0 + 0.5, 0.0, 1.0);
+    float sunVisibility = clamp(SdotU * 8.0 + 0.5, 0.0, 1.0);
 #endif
 
 //Common Functions//

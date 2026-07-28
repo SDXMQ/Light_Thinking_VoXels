@@ -205,7 +205,7 @@ void main() {
     vec4 viewPos = gbufferProjectionInverse * (screenPos * 2.0 - 1.0);
     viewPos /= viewPos.w;
     float lViewPos = length(viewPos);
-    vec3 nViewPos = normalize(viewPos.xyz);
+    vec3 nViewPos = viewPos.xyz / lViewPos;
     vec3 playerPos = ViewToPlayer(viewPos.xyz);
 
     float dither = texture2D(noisetex, texCoord * vec2(viewWidth, viewHeight) / 128.0).b;
@@ -296,7 +296,7 @@ void main() {
                 float NdotV = clamp(1.0 + dot(normalM, nViewPos), 0.0, 1.0) * (0.7 + 0.3 * smoothnessD);
                 float fresnelM = mix(pow2(pow2(NdotV)) * NdotV, 0.5 + 0.5 * sqrt1(smoothnessD), intenseFresnel * 0.8);
                 float lReflectColor = max(0.000001, infnorm(reflectColor));
-                reflectColor = mix(reflectColor * reflectColor / lReflectColor, reflectColor / lReflectColor, pow2(NdotV));
+                reflectColor = mix(reflectColor * reflectColor, reflectColor, pow2(NdotV)) / lReflectColor;
             #else
                 float fresnel = clamp(1.0 + dot(normalM, nViewPos), 0.0, 1.0);
 

@@ -173,7 +173,7 @@ vec4 GetReflection(vec3 normalM, vec3 viewPos, vec3 nViewPos, vec3 playerPos, fl
         vec3 fractCamPos = cameraPositionInt.y == -98257195 ? fract(cameraPosition) : cameraPositionFract;
         // Step 2.5: fill missing reflections with voxel data
         if (reflection.a < 1.0 ) {
-            vec3 voxelVector = mat3(gbufferModelViewInverse) * reflect(nViewPos, normalize(normalMR));
+            vec3 voxelVector = mat3(gbufferModelViewInverse) * reflect(nViewPos, normalMR);
             vec4 voxelStart = gbufferModelViewInverse * vec4(start, 1.0);
             voxelStart.xyz += fractCamPos;
             vec3 hitPos = rayTrace(voxelStart.xyz + 0.1 * voxelVector, 50.0 * voxelVector, dither);

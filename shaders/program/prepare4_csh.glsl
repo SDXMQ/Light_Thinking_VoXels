@@ -252,7 +252,7 @@ void main() {
         vxPos = playerPos.xyz + fractCamPos;
 
         normalDepthData.xyz = normalize(
-            normalDepthData.xyz - max(0.0, dot(normalDepthData.xyz, playerPos.xyz)) / pow2(length(playerPos.xyz)) * playerPos.xyz
+            normalDepthData.xyz - max(0.0, dot(normalDepthData.xyz, playerPos.xyz)) / dot(playerPos.xyz, playerPos.xyz) * playerPos.xyz
         );
 
         float bias = max(0.6/(1<<VOXEL_DETAIL_AMOUNT), 1.2 * infnorm(vxPos/voxelVolumeSize));

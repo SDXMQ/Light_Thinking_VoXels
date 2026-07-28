@@ -5,7 +5,7 @@ vec3 TransformMat(mat4 m, vec3 pos) {
 }
 
 vec3 SceneToPuddleVoxel(vec3 scenePos) {
-	return scenePos + fract(cameraPosition) + (0.5 * vec3(puddle_voxelVolumeSize));
+	return scenePos + fract(cameraPosition) + vec3(64.0);
 }
 
 bool CheckInsidePuddleVoxelVolume(vec3 voxelPos) {

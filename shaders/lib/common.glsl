@@ -699,7 +699,7 @@
     #include "/lib/uniforms.glsl"
 
     #if SHADOW_QUALITY == -1
-      float timeAngle = worldTime / 24000.0;
+      float timeAngle = worldTime * 0.0000416666666667;
     #else
       float tAmin     = fract(sunAngle - 0.033333333);
       float tAlin     = tAmin < 0.433333333 ? tAmin * 1.15384615385 : tAmin * 0.882352941176 + 0.117647058824;
@@ -719,12 +719,13 @@
     #endif
 
     const float shadowMapBias = 1.0 - 25.6 / shadowDistance;
+    float sinTime = sin(timeAngle * 6.28318530718);
     #ifndef DREAM_TWEAKED_LIGHTING
-        float noonFactor = sqrt(max(sin(timeAngle*6.28318530718),0.0));
+        float noonFactor = sqrt(max(sinTime, 0.0));
     #else
-        float noonFactor = pow(max(sin(timeAngle*6.28318530718),0.0), 0.2);
+        float noonFactor = pow(max(sinTime, 0.0), 0.2);
     #endif
-    float nightFactor = max(sin(timeAngle*(-6.28318530718)),0.0);
+    float nightFactor = max(-sinTime, 0.0);
     float invNightFactor = 1.0 - nightFactor;
     float rainFactor2 = rainFactor * rainFactor;
     float invRainFactor = 1.0 - rainFactor;

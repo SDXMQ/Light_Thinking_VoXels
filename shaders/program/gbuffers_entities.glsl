@@ -119,9 +119,9 @@ void main() {
     if (alphaCheck > 0.001) {
         vec3 screenPos = vec3(gl_FragCoord.xy / vec2(viewWidth, viewHeight), gl_FragCoord.z);
         vec3 viewPos = ScreenToView(screenPos);
-        vec3 nViewPos = normalize(viewPos);
-        vec3 playerPos = ViewToPlayer(viewPos);
         float lViewPos = length(viewPos);
+        vec3 nViewPos = viewPos / lViewPos;
+        vec3 playerPos = ViewToPlayer(viewPos);
 
         bool noSmoothLighting = atlasSize.x < 600.0; // To fix fire looking too dim
         bool noGeneratedNormals = false, noDirectionalShading = false, noVanillaAO = false;

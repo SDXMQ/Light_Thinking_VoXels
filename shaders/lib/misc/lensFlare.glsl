@@ -17,7 +17,7 @@ float PointLens(vec2 lightPos, float size, float dist) {
 }
 
 float RingLensTransform(float lensFlare) {
-    return pow(1.0 - pow(1.0 - pow(lensFlare, 0.25), 10.0), 5.0);
+    return pow(1.0 - pow(1.0 - sqrt(sqrt(lensFlare)), 10.0), 5.0);
 }
 float RingLens(vec2 lightPos, float size, float distA, float distB) {
     float lensFlare1 = RingLensTransform(BaseLens(lightPos, size, distA, 1.0));

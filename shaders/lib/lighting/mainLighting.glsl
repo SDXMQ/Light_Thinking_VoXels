@@ -213,7 +213,7 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
                                 playerPosM = mix(playerPosM, centerPlayerPos, 0.2 * (1.0 - pow2(pow2(centerFactor))));
                             }
                         #elif defined GBUFFERS_HAND
-                            playerPosM = mix(vec3(0.0), playerPosM, 0.2 + 0.8 * lightmapYM);
+                            playerPosM *= (0.2 + 0.8 * lightmapYM);
                         #elif defined GBUFFERS_TEXTURED
                             playerPosM = mix(centerPlayerPos, playerPosM + vec3(0.0, 0.02, 0.0), lightmapYM);
                         #else
@@ -277,7 +277,7 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
 
                     float shadowSmooth = 16.0;
                     if (shadowLength < shadowSmooth) {
-                        float shadowMixer = max0(shadowLength / shadowSmooth);
+                        float shadowMixer = max0(shadowLength * 0.0625);
 
                         #ifdef GBUFFERS_TERRAIN
                             if (subsurfaceMode != 0) {
@@ -611,7 +611,7 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
 
         specularHighlight *= highlightMult;
 
-        lightHighlight = isEyeInWater != 1 ? shadowMult : pow(shadowMult, vec3(0.25)) * 0.35;
+        lightHighlight = isEyeInWater != 1 ? shadowMult : sqrt(sqrt(shadowMult)) * 0.35;
         lightHighlight *= (subsurfaceHighlight + specularHighlight) * highlightColor;
 
         #ifdef LIGHT_COLOR_MULTS

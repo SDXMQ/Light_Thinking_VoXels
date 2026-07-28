@@ -173,7 +173,7 @@ void main() {
                     color1.rgb *= 1.0 - pow(color1.a, 64.0);
                     color1.rgb *= 0.28;
 
-                    color2.rgb = normalize(pow(color1.rgb, vec3(0.25))) * 0.5;
+                    color2.rgb = normalize(sqrt(sqrt(color1.rgb))) * 0.5;
                 }
             }
         } else {

@@ -92,7 +92,7 @@ void main() {
     float emission = 0.0, materialMask = OSIEBCA * 254.0; // No SSAO, No TAA
     vec2 lmCoordM = lmCoord;
     vec3 normalM = normal, geoNormal = normal, shadowMult = vec3(1.0);
-    vec3 worldGeoNormal = normalize(ViewToPlayer(geoNormal * 10000.0));
+    vec3 worldGeoNormal = normalize(mat3(gbufferModelViewInverse) * geoNormal);
     #if defined IPBR && defined IPBR_PARTICLE_FEATURES
         // We don't want to detect particles from the block atlas
         #if MC_VERSION >= 12000

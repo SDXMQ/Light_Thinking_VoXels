@@ -209,13 +209,11 @@ void DoLavaFog(inout vec3 color, float lViewPos) {
 }
 
 void DoPowderSnowFog(inout vec3 color, float lViewPos) {
-    float fog = lViewPos;
-
     #ifdef LESS_LAVA_FOG
-        fog = sqrt(fog) * 0.4;
+        float fog = lViewPos * 0.16;
+    #else
+        float fog = lViewPos * lViewPos;
     #endif
-
-    fog *= fog;
     fog = 1.0 - exp(-fog);
 
     fog = clamp(fog, 0.0, 1.0);

@@ -102,7 +102,7 @@ void main() {
     int subsurfaceMode = 0;
     float smoothnessG = 0.0, smoothnessD = 0.0, highlightMult = 1.0, emission = 0.0, snowFactor = 1.0, snowMinNdotU = 0.0;
     vec3 normalM = normal, geoNormal = normal, shadowMult = vec3(1.0);    
-    vec3 worldGeoNormal = normalize(ViewToPlayer(geoNormal * 10000.0));
+    vec3 worldGeoNormal = normalize(mat3(gbufferModelViewInverse) * geoNormal);
     
     if (mat == DH_BLOCK_LEAVES) {
         #include "/lib/materials/specificMaterials/terrain/leaves.glsl"

@@ -19,7 +19,7 @@
         ivec3 prevTexCoord0 = texCoord + (1<<j) * floorCamPosOffset;
         ivec3 prevTexCoord = prevTexCoord0 + ivec3(0, (frameCounter % 2 * 2 + j/4) * voxelVolumeSize.y, 0);
         if ((thisLocalOccupancy >> j & 1) == 1) {
-            fullDist[currentLocalCoord.x+1][currentLocalCoord.y+1][currentLocalCoord.z+1] = (1.0-1.0/sqrt(3.0)) / (1<<j);
+            fullDist[currentLocalCoord.x+1][currentLocalCoord.y+1][currentLocalCoord.z+1] = 0.42264973081 / float(1<<j);
         } else if (
             all(greaterThanEqual(prevTexCoord0, ivec3(0))) &&
             all(lessThan(prevTexCoord0, voxelVolumeSize))
@@ -49,7 +49,7 @@
     barrier();
     memoryBarrierShared();
 
-    theseDists[j] = (thisOccupancy >> j & 1) == 1 ? -1.0/sqrt(3.0) / (1<<j) : 1000;
+    theseDists[j] = (thisOccupancy >> j & 1) == 1 ? -0.57735026919 / float(1<<j) : 1000.0;
     if (isActive == 0) {
         #if j > 0
             ivec3 prevTexCoord0 = texCoord + (1<<j) * floorCamPosOffset;

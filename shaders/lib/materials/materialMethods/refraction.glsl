@@ -1,5 +1,5 @@
 float GetApproxDistance(float depth) {
-    return near * far / (far - depth * far);
+    return near / (1.0 - depth);
 }
 
 void DoRefraction(inout vec3 color, inout float z0, inout float z1, vec3 viewPos, float lViewPos) {

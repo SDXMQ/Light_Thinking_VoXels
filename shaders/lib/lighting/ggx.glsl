@@ -1,12 +1,12 @@
 // GGX area light approximation from Horizon Zero Dawn
 float GetNoHSquared(float radiusTan, float NoL, float NoV, float VoL) {
-    float radiusCos = 1.0 / sqrt(1.0 + radiusTan * radiusTan);
+    float radiusCos = inversesqrt(1.0 + radiusTan * radiusTan);
 
     float RoL = 2.0 * NoL * NoV - VoL;
     if (RoL >= radiusCos)
         return 1.0;
 
-    float rOverLengthT = radiusCos * radiusTan / sqrt(1.0 - RoL * RoL);
+    float rOverLengthT = radiusCos * radiusTan * inversesqrt(1.0 - RoL * RoL);
     float NoTr = rOverLengthT * (NoV - RoL * NoL);
     float VoTr = rOverLengthT * (2.0 * NoV * NoV - 1.0 - RoL * VoL);
 
@@ -48,7 +48,7 @@ float GGX(vec3 normalM, vec3 viewPos, vec3 lightVec, float NdotLmax0, float smoo
     #endif
 
     float denom = dotNH * roughness - dotNH + 1.0;
-    float D = roughness / (3.141592653589793 * pow2(denom));
+    float D = (roughness * 0.318309886) / pow2(denom);
     float f0 = 0.05;
     float F = exp2((-5.55473 * dotLH - 6.98316) * dotLH) * (1.0 - f0) + f0;
     #ifndef CSH

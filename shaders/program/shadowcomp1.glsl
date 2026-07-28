@@ -226,7 +226,10 @@ void main() {
 
     bool insideFrustrum = true;
     for (int k = 0; k < 5; k++) {
-        insideFrustrum = (insideFrustrum && dot(vxPos, frustrumSides[k]) > -10.0);
+        if (dot(vxPos, frustrumSides[k]) <= -10.0) {
+            insideFrustrum = false;
+            break;
+        }
     }
     bool hasNeighbor = false;
     int updateInterval = min(int(0.01 * dot(meanPos, meanPos) + 1.0), 10);
@@ -444,7 +447,10 @@ void main() {
         vec3 vxPos = coords - 0.5 * voxelVolumeSize + vec3(0.49, 0.51, 0.502);
         bool insideFrustrum = true;
         for (int k = 0; k < 5; k++) {
-            insideFrustrum = (insideFrustrum && dot(vxPos, frustrumSides[k]) > -10.0);
+            if (dot(vxPos, frustrumSides[k]) <= -10.0) {
+                insideFrustrum = false;
+                break;
+            }
         }
 
         if (insideFrustrum) {

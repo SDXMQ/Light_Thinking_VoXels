@@ -63,7 +63,7 @@ void main() {
 
     float materialMask = 0.0;
     vec3 normalM = normal, geoNormal = normal, shadowMult = vec3(1.0);
-    vec3 worldGeoNormal = normalize(ViewToPlayer(geoNormal * 10000.0));
+    vec3 worldGeoNormal = normalize(mat3(gbufferModelViewInverse) * geoNormal);
 
     #ifndef GBUFFERS_LINE
         DoLighting(color, shadowMult, playerPos, viewPos, lViewPos, geoNormal, normalM, 0.5,

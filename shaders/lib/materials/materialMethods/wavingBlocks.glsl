@@ -8,7 +8,7 @@ vec3 GetRawWave(in vec3 pos, float wind) {
     vec3 wave;
     wave.x = sin(wind*0.0063 + d0 + d1 - pos.x + pos.z + pos.y) * magnitude;
     wave.z = sin(wind*0.0224 + d1 + d2 + pos.x - pos.z + pos.y) * magnitude;
-    wave.y = sin(wind*0.0015 + d2 + d0 + pos.z + pos.y - pos.y) * magnitude;
+    wave.y = sin(wind*0.0015 + d2 + d0 + pos.z) * magnitude;
 
     return wave;
 }

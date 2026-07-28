@@ -128,7 +128,7 @@ void main() {
     float smoothnessG = 0.0, highlightMult = 1.0, emission = 0.0, noiseFactor = 1.0;
     vec2 lmCoordM = lmCoord;
     vec3 normalM = normal, geoNormal = normal, shadowMult = vec3(1.0);
-    vec3 worldGeoNormal = normalize(ViewToPlayer(geoNormal * 10000.0));
+    vec3 worldGeoNormal = normalize(mat3(gbufferModelViewInverse) * geoNormal);
 
     #ifdef IPBR
         #include "/lib/materials/materialHandling/blockEntityMaterials.glsl"

@@ -1,0 +1,680 @@
+﻿diff --git a/rethinking-voxels_r0.1-beta9/shaders/lib/atmospherics/volumetricBlocklight.glsl b/shaders/lib/atmospherics/volumetricBlocklight.glsl
+index 609d157..b94f560 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/lib/atmospherics/volumetricBlocklight.glsl
++++ b/shaders/lib/atmospherics/volumetricBlocklight.glsl
+@@ -60,15 +60,15 @@ vec3 GetVolumetricBlocklight(vec3 translucentMult, float lViewPos, vec3 nViewPos
+         float maxCurrentDist = min(depth1, far);
+     #endif
+ 
++    vec3 playerDir = mat3(gbufferModelViewInverse) * nViewPos;
++    vec3 playerStart = gbufferModelViewInverse[3].xyz;
++
+     for (int i = 0; i < sampleCount; i++) {
+         float currentDist = (i + dither) * distMult + addition;
+ 
+         if (currentDist > maxCurrentDist) break;
+ 
+-        vec4 viewPos = gbufferProjectionInverse * (vec4(texCoord, GetDistX(currentDist), 1.0) * 2.0 - 1.0);
+-        //viewPos /= viewPos.w;
+-        vec4 wpos = gbufferModelViewInverse * viewPos;
+-        vec3 playerPos = wpos.xyz / wpos.w;
++        vec3 playerPos = playerStart + playerDir * currentDist;
+         vec3 vxPos = playerPos + fractCamPos;
+ 
+         vec3 vlSample = vec3(0.0);
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/lib/atmospherics/volumetricLight.glsl b/shaders/lib/atmospherics/volumetricLight.glsl
+index e19d27f..fe5bd15 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/lib/atmospherics/volumetricLight.glsl
++++ b/shaders/lib/atmospherics/volumetricLight.glsl
+@@ -133,15 +133,19 @@ vec4 GetVolumetricLight(inout vec3 color, inout float vlFactor, vec3 translucent
+         float maxCurrentDist = min(depth1, far);
+     #endif
+ 
++    vec3 playerDir = mat3(gbufferModelViewInverse) * nViewPos;
++    vec3 playerStart = gbufferModelViewInverse[3].xyz;
++    #if SHADOW_QUALITY > -1
++        vec4 shadowStart = shadowProjection * (shadowModelView * vec4(playerStart, 1.0));
++        vec4 shadowDir = shadowProjection * (shadowModelView * vec4(playerDir, 0.0));
++    #endif
++
+     for (int i = 0; i < sampleCount; i++) {
+         float currentDist = (i + dither) * distMult + addition;
+ 
+         if (currentDist > maxCurrentDist) break;
+ 
+-        vec4 viewPos = gbufferProjectionInverse * (vec4(texCoord, GetDistX(currentDist), 1.0) * 2.0 - 1.0);
+-        viewPos /= viewPos.w;
+-        vec4 wpos = gbufferModelViewInverse * viewPos;
+-        vec3 playerPos = wpos.xyz / wpos.w;
++        vec3 playerPos = playerStart + playerDir * currentDist;
+         #ifdef END
+             #ifdef DISTANT_HORIZONS
+                 playerPos *= sqrt(renderDistance / far);
+@@ -153,8 +157,7 @@ vec4 GetVolumetricLight(inout vec3 color, inout float vlFactor, vec3 translucent
+         float shadowSample = 1.0;
+         vec3 vlSample = vec3(1.0);
+         #if SHADOW_QUALITY > -1
+-            wpos = shadowModelView * wpos;
+-            wpos = shadowProjection * wpos;
++            vec4 wpos = shadowStart + shadowDir * currentDist;
+             wpos /= wpos.w;
+             float distb = sqrt(wpos.x * wpos.x + wpos.y * wpos.y);
+             float distortFactor = 1.0 - shadowMapBias + distb * shadowMapBias;
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/lib/pipelineSettings.glsl b/shaders/lib/pipelineSettings.glsl
+index 84d106f..6628004 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/lib/pipelineSettings.glsl
++++ b/shaders/lib/pipelineSettings.glsl
+@@ -18,6 +18,9 @@ const int colortex14Format= RGBA16F;        //specular lighting
+ const int shadowcolor2Format = RGBA16f;     //interactive water (low detail)
+ */
+ 
++const float colortex10Scale = 0.5;
++const float colortex11Scale = 0.5;
++
+ const bool colortex0Clear = true;
+ const bool colortex1Clear = false;
+ const bool colortex2Clear = false;
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/lib/vx/irradianceCache.glsl b/shaders/lib/vx/irradianceCache.glsl
+index aa53e80..2d282e3 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/lib/vx/irradianceCache.glsl
++++ b/shaders/lib/vx/irradianceCache.glsl
+@@ -1,7 +1,7 @@
+ #ifndef IRRADIANCECACHE
+ #define IRRADIANCECACHE
+ bool isInRange(vec3 vxPos) {
+-    return all(greaterThan(vxPos, -0.5*voxelVolumeSize)) && all(lessThan(vxPos, 0.5*voxelVolumeSize));
++    return all(lessThan(abs(vxPos), 0.5 * voxelVolumeSize));
+ }
+ 
+ uniform sampler3D irradianceCache;
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/lib/vx/voxelReading.glsl b/shaders/lib/vx/voxelReading.glsl
+index a2c1125..5143ead 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/lib/vx/voxelReading.glsl
++++ b/shaders/lib/vx/voxelReading.glsl
+@@ -17,11 +17,11 @@ float getDistanceField(vec3 pos) {
+ 
+ vec3 distanceFieldGradient(vec3 pos) {
+     const float epsilon = 0.5/(1<<VOXEL_DETAIL_AMOUNT);
+-    vec3 grad;
+-    for (int k = 0; k < 3; k++) {
+-        grad[k] = (getDistanceField(pos + mat3(0.5*epsilon)[k]) - getDistanceField(pos - mat3(0.5*epsilon)[k])) / epsilon;
+-    }
+-    return grad;
++    const vec2 k = vec2(1.0, -1.0);
++    return (k.xyy * getDistanceField(pos + k.xyy * 0.5 * epsilon) +
++            k.yyx * getDistanceField(pos + k.yyx * 0.5 * epsilon) +
++            k.yxy * getDistanceField(pos + k.yxy * 0.5 * epsilon) +
++            k.xxx * getDistanceField(pos + k.xxx * 0.5 * epsilon)) / epsilon;
+ }
+ 
+ vec4 getColor(vec3 pos) {
+@@ -29,9 +29,10 @@ vec4 getColor(vec3 pos) {
+     if (any(lessThan(coords, ivec3(0))) || any(greaterThanEqual(coords, voxelVolumeSize))) {
+         return vec4(0);
+     }
++    ivec3 colCoord = coords * ivec3(1, 2, 1);
+     ivec2 rawCol = ivec2(
+-        imageLoad(voxelCols, coords * ivec3(1, 2, 1)).r,
+-        imageLoad(voxelCols, coords * ivec3(1, 2, 1) + ivec3(0, 1, 0)).r
++        imageLoad(voxelCols, colCoord).r,
++        imageLoad(voxelCols, colCoord + ivec3(0, 1, 0)).r
+     );
+     vec4 col = vec4(
+         rawCol.r % (1<<13),
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/program/composite.glsl b/shaders/program/composite.glsl
+index 957e783..f6a5a6a 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/program/composite.glsl
++++ b/shaders/program/composite.glsl
+@@ -119,17 +119,19 @@ void main() {
+         DoRefraction(color, z0, z1, viewPos.xyz, lViewPos);
+     #endif
+ 
+-    vec4 screenPos1 = vec4(texCoord, z1, 1.0);
+-    vec4 viewPos1 = gbufferProjectionInverse * (screenPos1 * 2.0 - 1.0);
+-    viewPos1 /= viewPos1.w;
+-    float lViewPos1 = length(viewPos1.xyz);
+-
+-    #if defined DISTANT_HORIZONS && !defined OVERWORLD
+-        float z1DH = texelFetch(dhDepthTex1, texelCoord, 0).r;
+-        vec4 screenPos1DH = vec4(texCoord, z1DH, 1.0);
+-        vec4 viewPos1DH = dhProjectionInverse * (screenPos1DH * 2.0 - 1.0);
+-        viewPos1DH /= viewPos1DH.w;
+-        lViewPos1 = min(lViewPos1, length(viewPos1DH.xyz));
++    #if defined LIGHTSHAFTS_ACTIVE || RAINBOWS > 0 && defined OVERWORLD || defined NETHER_STORM || defined COLORED_LIGHT_FOG
++        vec4 screenPos1 = vec4(texCoord, z1, 1.0);
++        vec4 viewPos1 = gbufferProjectionInverse * (screenPos1 * 2.0 - 1.0);
++        viewPos1 /= viewPos1.w;
++        float lViewPos1 = length(viewPos1.xyz);
++
++        #if defined DISTANT_HORIZONS && !defined OVERWORLD
++            float z1DH = texelFetch(dhDepthTex1, texelCoord, 0).r;
++            vec4 screenPos1DH = vec4(texCoord, z1DH, 1.0);
++            vec4 viewPos1DH = dhProjectionInverse * (screenPos1DH * 2.0 - 1.0);
++            viewPos1DH /= viewPos1DH.w;
++            lViewPos1 = min(lViewPos1, length(viewPos1DH.xyz));
++        #endif
+     #endif
+ 
+     #if defined LIGHTSHAFTS_ACTIVE || RAINBOWS > 0 && defined OVERWORLD
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/program/composite4.glsl b/shaders/program/composite4.glsl
+index f24ddf4..b914490 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/program/composite4.glsl
++++ b/shaders/program/composite4.glsl
+@@ -28,14 +28,12 @@ vec3 BloomTile(float lod, vec2 offset, vec2 scaledCoord) {
+ 
+     if (abs(coord.x - 0.5) < padding && abs(coord.y - 0.5) < padding) {
+         for (int i = -3; i <= 3; i++) {
+-            for (int j = -3; j <= 3; j++) {
+-                float wg = weight[i + 3] * weight[j + 3];
+-                vec2 pixelOffset = vec2(i, j) / view;
+-                vec2 bloomCoord = (scaledCoord - offset + pixelOffset) * scale;
+-                bloom += texture2D(colortex0, bloomCoord).rgb * wg;
+-            }
++            float wg = weight[i + 3];
++            vec2 pixelOffset = vec2(float(i), 0.0) / view;
++            vec2 bloomCoord = (scaledCoord - offset + pixelOffset) * scale;
++            bloom += texture2D(colortex0, bloomCoord).rgb * wg;
+         }
+-        bloom /= 4096.0;
++        bloom /= 64.0;
+     }
+ 
+     return pow(bloom / 128.0, vec3(0.25));
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/program/composite5.glsl b/shaders/program/composite5.glsl
+index f62408d..7efa2c0 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/program/composite5.glsl
++++ b/shaders/program/composite5.glsl
+@@ -52,16 +52,23 @@ void DoBSLColorSaturation(inout vec3 color) {
+ }
+ 
+ #ifdef BLOOM
++    float bloomWeight[7] = float[7](1.0, 6.0, 15.0, 20.0, 15.0, 6.0, 1.0);
+     vec2 rescale = max(vec2(viewWidth, viewHeight) / vec2(1920.0, 1080.0), vec2(1.0));
+     vec3 GetBloomTile(float lod, vec2 coord, vec2 offset) {
+         float scale = exp2(lod);
+-        vec2 bloomCoord = coord / scale + offset;
+-        bloomCoord = clamp(bloomCoord, offset, 1.0 / scale + offset);
+-
+-        vec3 bloom = texture2D(colortex3, bloomCoord / rescale).rgb;
+-        bloom *= bloom;
+-        bloom *= bloom;
+-        return bloom * 128.0;
++        vec3 bloomAcc = vec3(0.0);
++        for (int j = -3; j <= 3; j++) {
++            vec2 pixelOffset = vec2(0.0, float(j)) / view;
++            vec2 bloomCoord = (coord + pixelOffset) / scale + offset;
++            bloomCoord = clamp(bloomCoord, offset, 1.0 / scale + offset);
++
++            vec3 bSample = texture2D(colortex3, bloomCoord / rescale).rgb;
++            bSample *= bSample;
++            bSample *= bSample;
++            bloomAcc += bSample * bloomWeight[j + 3];
++        }
++        bloomAcc /= 64.0;
++        return bloomAcc * 128.0;
+     }
+ 
+     void DoBloom(inout vec3 color, vec2 coord, float dither, float lViewPos) {
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/program/deferred1.glsl b/shaders/program/deferred1.glsl
+index 3265fa8..4c3e988 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/program/deferred1.glsl
++++ b/shaders/program/deferred1.glsl
+@@ -48,10 +48,20 @@ float GetLinearDepth(float depth) {
+ }
+ 
+ #if SSAO_QUALI > 0
+-    vec2 OffsetDist(float x, int s) {
+-        float n = fract(x * 1.414) * 3.1415;
+-        return pow2(vec2(cos(n), sin(n)) * x / s);
+-    }
++    const vec2 ssaoBaseDir[12] = vec2[12](
++        vec2(-0.857216,  0.514959),
++        vec2( 0.469786, -0.882782),
++        vec2( 0.050247,  0.998737),
++        vec2(-0.567086, -0.823659),
++        vec2( 0.904827,  0.425779),
++        vec2(-0.996195,  0.087156),
++        vec2( 0.803730, -0.595000),
++        vec2(-0.378518,  0.925593),
++        vec2(-0.158158, -0.987414),
++        vec2( 0.637424,  0.770513),
++        vec2(-0.937282, -0.348574),
++        vec2( 0.981885, -0.189478)
++    );
+ 
+     float DoAmbientOcclusion(float z0, float linearZ0, float dither) {
+         if (z0 < 0.56) return 1.0;
+@@ -72,8 +82,14 @@ float GetLinearDepth(float depth) {
+         float distScale = max(farMinusNear * linearZ0 + near, 3.0);
+         vec2 scale = vec2(scm / aspectRatio, scm) * fovScale / distScale;
+ 
++        float rotAngle = fract(dither * 1.414) * 6.2831853;
++        vec2 rot = vec2(cos(rotAngle), sin(rotAngle));
++
+         for (int i = 1; i <= samples; i++) {
+-            vec2 offset = OffsetDist(i + dither, samples) * scale;
++            vec2 baseD = ssaoBaseDir[i - 1];
++            vec2 dir = vec2(baseD.x * rot.x - baseD.y * rot.y, baseD.y * rot.x + baseD.x * rot.y);
++            float ratio = float(i) / float(samples);
++            vec2 offset = (dir * dir) * (ratio * ratio) * scale;
+             if (i % 2 == 0) offset.y = -offset.y;
+ 
+             vec2 coord1 = texCoord + offset;
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/program/deferred1_csh.glsl b/shaders/program/deferred1_csh.glsl
+index 2a34ca5..9d40641 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/program/deferred1_csh.glsl
++++ b/shaders/program/deferred1_csh.glsl
+@@ -151,13 +151,18 @@ void main() {
+             vec4 texture6 = texelFetch(colortex6, coord, 0);
+             for (int k = 0; k < 10; k++) {
+                 ivec2 newCoord = ivec2(coord * 0.5 + 0.5 + 0.8 * randomGaussian());
+-                vec3 aroundReflection = texelFetch(colortex10, newCoord, 0).rgb;
++                float depthAround = texelFetch(depthtex0, newCoord << 1, 0).r;
++                if (abs(z0 - depthAround) > 0.01) continue;
++
+                 vec3 aroundNormal = texelFetch(colortex5, newCoord << 1, 0).rgb;
+                 vec4 aroundTexture6 = texelFetch(colortex6, newCoord << 1, 0);
+-                float thisWeight = exp(
+-                    -10 * dot(normalM - aroundNormal, normalM - aroundNormal)
+-                    - 10 * dot(texture6 - aroundTexture6, texture6 - aroundTexture6)
+-                );
++                vec3 normDiff = normalM - aroundNormal;
++                vec4 texDiff = texture6 - aroundTexture6;
++                float diffSqSum = dot(normDiff, normDiff) + dot(texDiff, texDiff);
++                if (diffSqSum > 0.921) continue;
++
++                vec3 aroundReflection = texelFetch(colortex10, newCoord, 0).rgb;
++                float thisWeight = exp(-10.0 * diffSqSum);
+                 filteredReflection += thisWeight * vec4(aroundReflection, 1);
+             }
+         }
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/program/final.glsl b/shaders/program/final.glsl
+index 926476e..06bee0a 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/program/final.glsl
++++ b/shaders/program/final.glsl
+@@ -143,11 +143,16 @@ void main() {
+     /* DRAWBUFFERS:0 */
+     gl_FragData[0] = vec4(color, 1.0);
+ 
+-    int index = int(gl_FragCoord.x) + int(viewWidth + 0.5) * int(gl_FragCoord.y);
+-    int clearPerFragment = 1 + 4 * (1<<18) / int(viewWidth * viewHeight + 0.5);
+-    if (index < 4 * (1<<18) / clearPerFragment) {
+-        for (int j = 0; j < clearPerFragment; j++) {
+-            globalLightHashMap[index * clearPerFragment + j] = uint(0);
++    int totalPixels = int(viewWidth) * int(viewHeight);
++    if (totalPixels > 0) {
++        int index = int(gl_FragCoord.x) + int(viewWidth) * int(gl_FragCoord.y);
++        int clearPerFragment = 1 + 1048576 / totalPixels;
++        int maxIndex = 1048576 / clearPerFragment;
++        if (index < maxIndex) {
++            int baseIdx = index * clearPerFragment;
++            for (int j = 0; j < clearPerFragment; j++) {
++                globalLightHashMap[baseIdx + j] = 0u;
++            }
+         }
+     }
+ 
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/program/gbuffers_terrain.glsl b/shaders/program/gbuffers_terrain.glsl
+index a419ccf..eba63db 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/program/gbuffers_terrain.glsl
++++ b/shaders/program/gbuffers_terrain.glsl
+@@ -195,7 +195,8 @@ void main() {
+         albedo.r = texelFetch(colortex4, ivec2(gl_FragCoord.xy), 0).r;
+     }
+ 
+-    vec3 screenPos = vec3(gl_FragCoord.xy / vec2(viewWidth, viewHeight), gl_FragCoord.z);
++    vec2 invViewSize = 1.0 / vec2(viewWidth, viewHeight);
++    vec3 screenPos = vec3(gl_FragCoord.xy * invViewSize, gl_FragCoord.z);
+     #ifdef TAA
+         vec3 viewPos = ScreenToView(vec3(TAAJitter(screenPos.xy, -0.5), screenPos.z));
+     #else
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/program/gbuffers_water.glsl b/shaders/program/gbuffers_water.glsl
+index 0770026..c4fbd82 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/program/gbuffers_water.glsl
++++ b/shaders/program/gbuffers_water.glsl
+@@ -136,7 +136,8 @@ void main() {
+     vec4 colorP = texture2D(tex, texCoord);
+     vec4 color = colorP * vec4(glColor.rgb, 1.0);
+ 
+-    vec3 screenPos = vec3(gl_FragCoord.xy / vec2(viewWidth, viewHeight), gl_FragCoord.z);
++    vec2 invViewSize = 1.0 / vec2(viewWidth, viewHeight);
++    vec3 screenPos = vec3(gl_FragCoord.xy * invViewSize, gl_FragCoord.z);
+     #ifdef TAA
+         vec3 viewPos = ScreenToView(vec3(TAAJitter(screenPos.xy, -0.5), screenPos.z));
+     #else
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/program/prepare4_csh.glsl b/shaders/program/prepare4_csh.glsl
+index f895039..a807854 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/program/prepare4_csh.glsl
++++ b/shaders/program/prepare4_csh.glsl
+@@ -128,11 +128,16 @@ float distanceFalloff(float maxDistRelDist) {
+     );
+ }
+ 
++const ivec3 neighborOffsets[6] = ivec3[6](
++    ivec3(-1, 0, 0), ivec3(0, -1, 0), ivec3(0, 0, -1),
++    ivec3(1, 0, 0),  ivec3(0, 1, 0),  ivec3(0, 0, 1)
++);
++
+ void registerLight(ivec3 lightCoord, vec3 referencePos, vec3 referenceNormal, float weight) {
+     bool isStillLight = (imageLoad(occupancyVolume, lightCoord + voxelVolumeSize/2).r >> 16 & 1) != 0;
+     if (!isStillLight) {
+         for (int k = 0; k < 6; k++) {
+-            ivec3 offset = (k/3*2-1) * ivec3(equal(ivec3(k%3), ivec3(0, 1, 2)));
++            ivec3 offset = neighborOffsets[k];
+             if ((imageLoad(occupancyVolume, lightCoord + offset + voxelVolumeSize/2).r >> 16 & 1) != 0) {
+                 isStillLight = true;
+                 lightCoord += offset;
+@@ -140,7 +145,8 @@ void registerLight(ivec3 lightCoord, vec3 referencePos, vec3 referenceNormal, fl
+             }
+         }
+     }
+-    uint hash = posToHash(lightCoord) % uint(128*32);
++    uint pHash = posToHash(lightCoord);
++    uint hash = pHash % uint(128*32);
+     bool known = !isStillLight;
+     if (isStillLight) {
+         known = (atomicOr(lightHashMap[hash/32], uint(1)<<hash%32) & uint(1)<<hash%32) != 0;
+@@ -149,9 +155,9 @@ void registerLight(ivec3 lightCoord, vec3 referencePos, vec3 referenceNormal, fl
+     if (!known) {
+         int lightIndex = atomicAdd(lightCount, 1);
+         if (lightIndex < MAX_LIGHT_COUNT) {
+-            uint hash = posToHash(lightCoord) % uint(1<<18);
+-            uvec2 packedLightSubPos = uvec2(globalLightHashMap[4*hash], globalLightHashMap[4*hash+1]);
+-            uvec2 packedLightCol = uvec2(globalLightHashMap[4*hash+2], globalLightHashMap[4*hash+3]);
++            uint gHash = pHash % uint(1<<18);
++            uvec2 packedLightSubPos = uvec2(globalLightHashMap[4*gHash], globalLightHashMap[4*gHash+1]);
++            uvec2 packedLightCol = uvec2(globalLightHashMap[4*gHash+2], globalLightHashMap[4*gHash+3]);
+             int thisLightExtraData = imageLoad(occupancyVolume, lightCoord + voxelVolumeSize/2).r;
+             vec3 subLightPos = (packedLightSubPos.y >> 16) == 0 ? vec3(0.5) : 1.0/32.0 * vec3(packedLightSubPos.x & 0xffff, packedLightSubPos.x>>16, packedLightSubPos.y & 0xffff) / (packedLightSubPos.y >> 16) - 1;
+             vec3 lightCol = 1.0/32.0 * vec3(packedLightCol.x & 0xffff, packedLightCol.x>>16, packedLightCol.y & 0xffff) / (packedLightSubPos.y >> 16);
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/program/prepare4_csh_a.glsl b/shaders/program/prepare4_csh_a.glsl
+index 28aebab..62b84a1 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/program/prepare4_csh_a.glsl
++++ b/shaders/program/prepare4_csh_a.glsl
+@@ -141,6 +141,14 @@ void main() {
+         #ifdef BLOCKLIGHT_HIGHLIGHT
+             vec3[2] specularBounds = vec3[2](vec3(10000), vec3(0));
+         #endif
++        const float phi = 1.618033988749895;
++        const float phi2 = 2.618033988749895;
++        const float phi3 = 4.236067977499790;
++        const float phi4 = 6.854101966249685;
++        const float phi5 = 11.090169943749475;
++        const float phi6 = 17.944271910000000;
++        vec2 frameJitter = vec2(float(frameCounter % 1000) * phi, float(frameCounter % 1000) * phi2);
++
+         for (int k = 0; k < 8; k++) {
+             vec2 texCoordOffset = randomGaussian() * 0.8;
+             ivec2 c = ivec2(localLrTexCoord + texCoordOffset);
+@@ -148,15 +156,12 @@ void main() {
+                 vec2 coffset
+                     = ivec2(
+                         BLOCKLIGHT_RESOLUTION
+-                        * fract(vec2(
+-                            frameCounter % 1000 * 1.618033988749895,
+-                            frameCounter % 1000 * 1.618033988749895 * 1.618033988749895
+-                        ) + vec2(
+-                            (c.x + lowerBound.x) * 1.618033988749895 * 1.618033988749895 * 1.618033988749895,
+-                            (c.x + lowerBound.x) * 1.618033988749895 * 1.618033988749895 * 1.618033988749895 * 1.618033988749895
++                        * fract(frameJitter + vec2(
++                            float(c.x + lowerBound.x) * phi3,
++                            float(c.x + lowerBound.x) * phi4
+                         ) + vec2(
+-                            (c.y + lowerBound.y) * 1.618033988749895 * 1.618033988749895 * 1.618033988749895 * 1.618033988749895 * 1.618033988749895,
+-                            (c.y + lowerBound.y) * 1.618033988749895 * 1.618033988749895 * 1.618033988749895 * 1.618033988749895 * 1.618033988749895 * 1.618033988749895
++                            float(c.y + lowerBound.y) * phi5,
++                            float(c.y + lowerBound.y) * phi6
+                         ))
+                     ) / float(BLOCKLIGHT_RESOLUTION);
+                 texCoordOffset = c + coffset - localLrTexCoord;
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/program/shadow.glsl b/shaders/program/shadow.glsl
+index 4041cbd..1f4e8a8 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/program/shadow.glsl
++++ b/shaders/program/shadow.glsl
+@@ -38,11 +38,18 @@ float sunVisibility = clamp(SdotU + 0.0625, 0.0, 0.125) / 0.125;
+ //Common Functions//
+ void DoNaturalShadowCalculation(inout vec4 color1, inout vec4 color2) {
+     color1.rgb *= glColor.rgb;
+-    color1.rgb = mix(vec3(1.0), color1.rgb, pow(color1.a, (1.0 - color1.a) * 0.5) * 1.05);
+-    color1.rgb *= 1.0 - pow(color1.a, 64.0);
++    if (color1.a > 0.999) {
++        color1.rgb = vec3(0.0);
++        color2.rgb = vec3(0.0);
++        return;
++    }
++    if (color1.a > 0.001) {
++        color1.rgb = mix(vec3(1.0), color1.rgb, pow(color1.a, (1.0 - color1.a) * 0.5) * 1.05);
++        color1.rgb *= 1.0 - pow(color1.a, 64.0);
++    }
+     color1.rgb *= 0.2; // Natural Strength
+ 
+-    color2.rgb = normalize(color1.rgb) * 0.5;
++    color2.rgb = normalize(color1.rgb + 1e-6) * 0.5;
+ }
+ 
+ //Includes//
+@@ -204,12 +211,34 @@ void main() {
+     } else {
+         vec4 col = textureLod(tex, texCoord, 0);
+ 
+-        vec2 readSize = min(abs(dFdx(texCoord)), abs(dFdy(texCoord)));
+-        for (int k = 0; k < 4; k++) {
+-            vec2 offset = vec2(k%2, k/2%2) * 0.5 - 0.25;
+-            vec4 col2 = textureLod(tex, texCoord + offset * readSize, 0);
+-            if (col2.a > col.a) col = col2;
+-        }
++        #if __VERSION__ >= 400
++            if (col.a < 0.999) {
++                vec4 alphas = textureGather(tex, texCoord, 3);
++                float maxAlpha = max(max(alphas.x, alphas.y), max(alphas.z, alphas.w));
++                if (maxAlpha > col.a) {
++                    const vec2 offsets[4] = vec2[4](
++                        vec2(-0.25, -0.25), vec2( 0.25, -0.25),
++                        vec2(-0.25,  0.25), vec2( 0.25,  0.25)
++                    );
++                    vec2 readSize = min(abs(dFdx(texCoord)), abs(dFdy(texCoord)));
++                    for (int k = 0; k < 4; k++) {
++                        vec4 col2 = textureLod(tex, texCoord + offsets[k] * readSize, 0);
++                        if (col2.a > col.a) col = col2;
++                    }
++                }
++            }
++        #else
++            vec2 readSize = min(abs(dFdx(texCoord)), abs(dFdy(texCoord)));
++            const vec2 offsets[4] = vec2[4](
++                vec2(-0.25, -0.25), vec2( 0.25, -0.25),
++                vec2(-0.25,  0.25), vec2( 0.25,  0.25)
++            );
++            for (int k = 0; k < 4; k++) {
++                if (col.a >= 0.999) break;
++                vec4 col2 = textureLod(tex, texCoord + offsets[k] * readSize, 0);
++                if (col2.a > col.a) col = col2;
++            }
++        #endif
+         col.rgb *= glColor.rgb;
+         bool doTransparency = renderStage != MC_RENDER_STAGE_ENTITIES;
+         if (col.a > (doTransparency ? 0.1 : 0.5)) {
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/program/shadowcomp.glsl b/shaders/program/shadowcomp.glsl
+index d33a1de..71c1e9b 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/program/shadowcomp.glsl
++++ b/shaders/program/shadowcomp.glsl
+@@ -175,15 +175,18 @@ void main() {
+     }
+     barrier();
+     memoryBarrierShared();
+-    int aroundLightCount = 1;
+-    for (int k = index + 1; k < lightCount; k++) {
+-        if (length(lightLocs[k] - lightLocs[index]) < 1.1) {
+-            for (int l = index + 1; l < k; l++) {
+-                if (length(lightLocs[l] - lightLocs[k]) < 1.1) {
+-                    atomicExchange(lights[l], -1);
++    if (lights[index] != -1) {
++        for (int k = index + 1; k < lightCount; k++) {
++            vec3 diffK = vec3(lightLocs[k].xyz - lightLocs[index].xyz);
++            if (dot(diffK, diffK) < 1.21) {
++                for (int l = index + 1; l < k; l++) {
++                    vec3 diffL = vec3(lightLocs[l].xyz - lightLocs[k].xyz);
++                    if (dot(diffL, diffL) < 1.21) {
++                        atomicExchange(lights[l], -1);
++                    }
+                 }
++                atomicExchange(lights[k], -1);
+             }
+-            atomicExchange(lights[k], -1);
+         }
+     }
+     barrier();
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/program/shadowcomp1.glsl b/shaders/program/shadowcomp1.glsl
+index a7ee0c9..a94b221 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/program/shadowcomp1.glsl
++++ b/shaders/program/shadowcomp1.glsl
+@@ -313,10 +313,11 @@ void main() {
+             float ndotl0 = infnorm(vxPos - 0.5 * normal - lightPos) < 0.5 || !hasNeighbor ? 1.0 :
+                 max(0, (dot(normalize(lightPos - vxPos + 0.5 * normal), normal)));
+             vec3 dir = lightPos - vxPos;
+-            float dirLen = length(dir);
+-            float thisTraceLen = (extraData[thisLightIndex]>>17 & 31)/32.0;
+-            if (dirLen < thisTraceLen * LIGHT_TRACE_LENGTH && ndotl0 > 0.001) {
+-                float lightBrightness = 1.5 * thisTraceLen;
++            float dirLenSq = dot(dir, dir);
++            float maxTraceLen = ((extraData[thisLightIndex]>>17 & 31)/32.0) * LIGHT_TRACE_LENGTH;
++            if (dirLenSq < maxTraceLen * maxTraceLen && ndotl0 > 0.001) {
++                float dirLen = sqrt(dirLenSq);
++                float lightBrightness = 1.5 * ((extraData[thisLightIndex]>>17 & 31)/32.0);
+                 lightBrightness *= lightBrightness;
+                 float ndotl = ndotl0 * lightBrightness;
+                 vec4 rayHit1 = coneTrace(vxPos, (1.0 - 0.1 / (dirLen + 0.1)) * dir, 0.4 / dirLen, dither);
+@@ -336,7 +337,7 @@ void main() {
+                     #endif
+                     vec3 lightColor = lightCols[thisLightIndex];
+                     float totalBrightness = ndotl
+-                        * distanceFalloff(dirLen / (thisTraceLen * LIGHT_TRACE_LENGTH))
++                        * distanceFalloff(dirLen / maxTraceLen)
+                         * lightBrightness;
+                     writeColor += lightColor
+                     #ifdef TRANSLUCENT_LIGHT_TINT
+@@ -518,11 +519,7 @@ void main() {
+                     #endif
+                     vec3 hitCol = vec3(0);
+                     if (length(hitPos - vxPos) < LIGHT_TRACE_LENGTH - 0.5 && infnorm(hitPos / voxelVolumeSize) < 0.5) {
+-                        vec3 hitNormal = vec3(0);
+-                        for (int k = 0; k < 3; k++) {
+-                            hitNormal[k] = getDistanceField(hitPos + mat3(0.5)[k]) - getDistanceField(hitPos - mat3(0.5)[k]);
+-                        }
+-                        hitNormal = normalize(hitNormal);
++                        vec3 hitNormal = normalize(distanceFieldGradient(hitPos));
+                         vec3 hitBlocklight = imageLoad(irradianceCacheI, ivec3(hitPos + 0.5 * hitNormal + vec3(0.5, 1.5, 0.5) * voxelVolumeSize)).rgb;
+                         vec4 hitGIColor = imageLoad(irradianceCacheI, ivec3(hitPos + 0.5 * hitNormal + 0.5 * voxelVolumeSize - vec3(0.5)));
+                         vec3 hitGIlight = hitGIColor.rgb / max(hitGIColor.a, 0.0001);
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/program/shadowcomp2.glsl b/shaders/program/shadowcomp2.glsl
+index ae654d5..4375a38 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/program/shadowcomp2.glsl
++++ b/shaders/program/shadowcomp2.glsl
+@@ -39,16 +39,19 @@ void main() {
+         bool hadAnyBlocks = false;
+         float attenuationCoeff = vec4(0.994, 0.983, 0.95, 0.9)[lodIndex];
+         if (all(greaterThan(pos0.xz, -0.5 * voxelVolumeSize.xz + 5)) && all(lessThan(pos0.xz, 0.5 * voxelVolumeSize.xz - 5))) {
++            ivec2 baseXZ = ivec2(pos0.xz + voxelVolumeSize.xz/2);
+             for (int k = voxelVolumeSize.y - 1; k >= 0; k--) {
+-                ivec3 coords = ivec3(pos0.xz + voxelVolumeSize.xz/2, k).xzy;
+-                int waterData = imageLoad(voxelCols, coords * ivec3(1, 2, 1)).r >> 26;
++                ivec3 coords = ivec3(baseXZ.x, k, baseXZ.y);
++                ivec3 colCoord = coords * ivec3(1, 2, 1);
++                int waterData = imageLoad(voxelCols, colCoord).r >> 26;
+                 if ((waterData & 1) == 1) {
+                     waterHeight = coords.y - voxelVolumeSize.y/2;
+                     pos0.y = waterHeight + 0.5;
+                     hadAnyBlocks = true;
+                     break;
+                 }
+-                if (!hadAnyBlocks && (imageLoad(occupancyVolume, coords).r & 1) != 0) {
++                int occData = imageLoad(occupancyVolume, coords).r;
++                if (!hadAnyBlocks && (occData & 1) != 0) {
+                     hadAnyBlocks = true;
+                 }
+             }
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/program/shadowcomp_sdf_loop.glsl b/shaders/program/shadowcomp_sdf_loop.glsl
+index d044827..2ad3505 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/program/shadowcomp_sdf_loop.glsl
++++ b/shaders/program/shadowcomp_sdf_loop.glsl
+@@ -1,6 +1,12 @@
+ {
+     if (gl_LocalInvocationIndex == 0u) {
+-        isActive = (gl_WorkGroupID.x + gl_WorkGroupID.y + gl_WorkGroupID.z + frameCounter) % max(1, SDF_UPDATE_INTERVAL);
++        #if SDF_UPDATE_INTERVAL > 1
++            bool isCameraMoving = any(greaterThan(abs(floorCamPosOffset), ivec3(0)));
++            uint gridHash = gl_WorkGroupID.x ^ gl_WorkGroupID.y ^ gl_WorkGroupID.z ^ uint(frameCounter);
++            isActive = (isCameraMoving || (gridHash % uint(SDF_UPDATE_INTERVAL) == 0u)) ? 0u : 1u;
++        #else
++            isActive = 0u;
++        #endif
+     }
+     barrier();
+     memoryBarrierShared();
+@@ -63,19 +69,35 @@
+             if (prevDist < (levelFadeDist*1.5)/(1<<j)) {
+             #endif
+ 
+-            for (int k = 0; k < 27; k++) {
+-                ivec3 c2 = localCoord + ivec3(k%3, k/3%3, k/9%3);
+-                theseDists[j] = min(theseDists[j], fullDist[c2.x][c2.y][c2.z]);
+-                #if SDF_UPDATE_INTERVAL == 0
+-                    ivec3 c3 = localCoord + 2 * ivec3(k%3, k/3%3, k/9%3) - 1;
+-                    theseDists[j] = min(
+-                        theseDists[j],
+-                        all(greaterThanEqual(c3, ivec3(0))) &&
+-                        all(lessThan(c3, ivec3(10))) ?
+-                        fullDist[c3.x][c3.y][c3.z] + 1.0/(1<<j) : 1000
+-                    );
+-                #endif
++            // 3-axis separable filter for 3D min reduction (27-tap -> 9-tap)
++            float minXYZ = 10000.0;
++            for (int dz = 0; dz < 3; dz++) {
++                float minY = 10000.0;
++                for (int dy = 0; dy < 3; dy++) {
++                    ivec3 baseC = localCoord + ivec3(0, dy, dz);
++                    float minX = min(fullDist[baseC.x][baseC.y][baseC.z],
++                                 min(fullDist[baseC.x + 1][baseC.y][baseC.z],
++                                     fullDist[baseC.x + 2][baseC.y][baseC.z]));
++                    minY = min(minY, minX);
++                }
++                minXYZ = min(minXYZ, minY);
+             }
++            theseDists[j] = min(theseDists[j], minXYZ);
++
++            #if SDF_UPDATE_INTERVAL == 0
++                float minXYZ_ext = 10000.0;
++                for (int dz = 0; dz < 3; dz++) {
++                    for (int dy = 0; dy < 3; dy++) {
++                        for (int dx = 0; dx < 3; dx++) {
++                            ivec3 c3 = localCoord + 2 * ivec3(dx, dy, dz) - 1;
++                            if (all(greaterThanEqual(c3, ivec3(0))) && all(lessThan(c3, ivec3(10)))) {
++                                minXYZ_ext = min(minXYZ_ext, fullDist[c3.x][c3.y][c3.z] + 1.0/(1<<j));
++                            }
++                        }
++                    }
++                }
++                theseDists[j] = min(theseDists[j], minXYZ_ext);
++            #endif
+             #if j > 0
+                 if (prevDist > levelFadeDist/(1<<j)) {
+                     theseDists[j] = mix(theseDists[j], prevDist, prevDist * (1<<j) / (0.5 * levelFadeDist) - 2.0);
+diff --git a/rethinking-voxels_r0.1-beta9/shaders/shaders.properties b/shaders/shaders.properties
+index 852d91e..d09bc05 100644
+--- a/rethinking-voxels_r0.1-beta9/shaders/shaders.properties
++++ b/shaders/shaders.properties
+@@ -1,9 +1,9 @@
+ # Profiles
+-    profile.LOW      = SHADOW_QUALITY=0 shadowDistance=64.0 ENTITY_SHADOWS_DEFINE=-1 WATER_REFLECT_QUALITY=2 BLOCK_REFLECT_QUALITY=1 LIGHTSHAFT_QUALI_DEFINE=0 SSAO_QUALI_DEFINE=2 FXAA_DEFINE=-1 DETAIL_QUALITY=2 CLOUD_QUALITY=2 ANISOTROPIC_FILTER=0 VX_VOL_SIZE=0 VOXEL_DETAIL_AMOUNT=4 GI_STRENGTH=0 !PER_PIXEL_LIGHT !VOXEL_RT_REFLECTIONS MAX_TRACE_COUNT=16 RT_STEPS=50 BLOCKLIGHT_RESOLUTION=6 !TRANSLUCENT_LIGHT_TINT !INTERACTIVE_WATER
+-    profile.MEDIUM   = SHADOW_QUALITY=1 shadowDistance=96.0 ENTITY_SHADOWS_DEFINE=-1 WATER_REFLECT_QUALITY=2 BLOCK_REFLECT_QUALITY=1 LIGHTSHAFT_QUALI_DEFINE=1 SSAO_QUALI_DEFINE=2 FXAA_DEFINE=-1 DETAIL_QUALITY=2 CLOUD_QUALITY=2 ANISOTROPIC_FILTER=0 VX_VOL_SIZE=0 VOXEL_DETAIL_AMOUNT=5 GI_STRENGTH=0 PER_PIXEL_LIGHT !VOXEL_RT_REFLECTIONS MAX_TRACE_COUNT=24 RT_STEPS=50 BLOCKLIGHT_RESOLUTION=4 !TRANSLUCENT_LIGHT_TINT !INTERACTIVE_WATER
+-    profile.HIGH     = SHADOW_QUALITY=2 shadowDistance=128.0 ENTITY_SHADOWS_DEFINE=-1 WATER_REFLECT_QUALITY=2 BLOCK_REFLECT_QUALITY=3 LIGHTSHAFT_QUALI_DEFINE=2 SSAO_QUALI_DEFINE=2 FXAA_DEFINE=1 DETAIL_QUALITY=2 CLOUD_QUALITY=2 ANISOTROPIC_FILTER=0 VX_VOL_SIZE=1 VOXEL_DETAIL_AMOUNT=6 GI_STRENGTH=1 PER_PIXEL_LIGHT VOXEL_RT_REFLECTIONS MAX_TRACE_COUNT=32 RT_STEPS=70 BLOCKLIGHT_RESOLUTION=3 TRANSLUCENT_LIGHT_TINT INTERACTIVE_WATER
+-    profile.VERYHIGH = SHADOW_QUALITY=3 shadowDistance=224.0 ENTITY_SHADOWS_DEFINE=-1 WATER_REFLECT_QUALITY=2 BLOCK_REFLECT_QUALITY=3 LIGHTSHAFT_QUALI_DEFINE=3 SSAO_QUALI_DEFINE=2 FXAA_DEFINE=1 DETAIL_QUALITY=3 CLOUD_QUALITY=3 ANISOTROPIC_FILTER=8 VX_VOL_SIZE=1 VOXEL_DETAIL_AMOUNT=6 GI_STRENGTH=1 PER_PIXEL_LIGHT VOXEL_RT_REFLECTIONS MAX_TRACE_COUNT=64 RT_STEPS=70 BLOCKLIGHT_RESOLUTION=2 TRANSLUCENT_LIGHT_TINT INTERACTIVE_WATER
+-    profile.ULTRA    = SHADOW_QUALITY=4 shadowDistance=256.0 ENTITY_SHADOWS_DEFINE=-1 WATER_REFLECT_QUALITY=2 BLOCK_REFLECT_QUALITY=3 LIGHTSHAFT_QUALI_DEFINE=4 SSAO_QUALI_DEFINE=2 FXAA_DEFINE=1 DETAIL_QUALITY=3 CLOUD_QUALITY=3 ANISOTROPIC_FILTER=8 VX_VOL_SIZE=2 VOXEL_DETAIL_AMOUNT=7 GI_STRENGTH=1 PER_PIXEL_LIGHT VOXEL_RT_REFLECTIONS MAX_TRACE_COUNT=96 RT_STEPS=100 BLOCKLIGHT_RESOLUTION=1 TRANSLUCENT_LIGHT_TINT INTERACTIVE_WATER
++    profile.LOW      = SHADOW_QUALITY=0 shadowDistance=64.0 ENTITY_SHADOWS_DEFINE=-1 WATER_REFLECT_QUALITY=2 BLOCK_REFLECT_QUALITY=1 LIGHTSHAFT_QUALI_DEFINE=0 SSAO_QUALI_DEFINE=2 FXAA_DEFINE=-1 DETAIL_QUALITY=2 CLOUD_QUALITY=2 ANISOTROPIC_FILTER=0 VX_VOL_SIZE=0 VOXEL_DETAIL_AMOUNT=4 GI_STRENGTH=0 !PER_PIXEL_LIGHT !VOXEL_RT_REFLECTIONS MAX_TRACE_COUNT=16 RT_STEPS=40 BLOCKLIGHT_RESOLUTION=6 !TRANSLUCENT_LIGHT_TINT !INTERACTIVE_WATER
++    profile.MEDIUM   = SHADOW_QUALITY=1 shadowDistance=96.0 ENTITY_SHADOWS_DEFINE=-1 WATER_REFLECT_QUALITY=2 BLOCK_REFLECT_QUALITY=1 LIGHTSHAFT_QUALI_DEFINE=1 SSAO_QUALI_DEFINE=2 FXAA_DEFINE=-1 DETAIL_QUALITY=2 CLOUD_QUALITY=2 ANISOTROPIC_FILTER=0 VX_VOL_SIZE=0 VOXEL_DETAIL_AMOUNT=5 GI_STRENGTH=0 PER_PIXEL_LIGHT !VOXEL_RT_REFLECTIONS MAX_TRACE_COUNT=20 RT_STEPS=45 BLOCKLIGHT_RESOLUTION=4 !TRANSLUCENT_LIGHT_TINT !INTERACTIVE_WATER
++    profile.HIGH     = SHADOW_QUALITY=2 shadowDistance=128.0 ENTITY_SHADOWS_DEFINE=-1 WATER_REFLECT_QUALITY=2 BLOCK_REFLECT_QUALITY=3 LIGHTSHAFT_QUALI_DEFINE=2 SSAO_QUALI_DEFINE=2 FXAA_DEFINE=1 DETAIL_QUALITY=2 CLOUD_QUALITY=2 ANISOTROPIC_FILTER=0 VX_VOL_SIZE=1 VOXEL_DETAIL_AMOUNT=5 GI_STRENGTH=1 PER_PIXEL_LIGHT VOXEL_RT_REFLECTIONS MAX_TRACE_COUNT=24 RT_STEPS=50 BLOCKLIGHT_RESOLUTION=3 TRANSLUCENT_LIGHT_TINT INTERACTIVE_WATER
++    profile.VERYHIGH = SHADOW_QUALITY=3 shadowDistance=192.0 ENTITY_SHADOWS_DEFINE=-1 WATER_REFLECT_QUALITY=2 BLOCK_REFLECT_QUALITY=3 LIGHTSHAFT_QUALI_DEFINE=3 SSAO_QUALI_DEFINE=2 FXAA_DEFINE=1 DETAIL_QUALITY=3 CLOUD_QUALITY=3 ANISOTROPIC_FILTER=8 VX_VOL_SIZE=1 VOXEL_DETAIL_AMOUNT=6 GI_STRENGTH=1 PER_PIXEL_LIGHT VOXEL_RT_REFLECTIONS MAX_TRACE_COUNT=32 RT_STEPS=60 BLOCKLIGHT_RESOLUTION=2 TRANSLUCENT_LIGHT_TINT INTERACTIVE_WATER
++    profile.ULTRA    = SHADOW_QUALITY=4 shadowDistance=256.0 ENTITY_SHADOWS_DEFINE=-1 WATER_REFLECT_QUALITY=2 BLOCK_REFLECT_QUALITY=3 LIGHTSHAFT_QUALI_DEFINE=4 SSAO_QUALI_DEFINE=2 FXAA_DEFINE=1 DETAIL_QUALITY=3 CLOUD_QUALITY=3 ANISOTROPIC_FILTER=8 VX_VOL_SIZE=2 VOXEL_DETAIL_AMOUNT=6 GI_STRENGTH=1 PER_PIXEL_LIGHT VOXEL_RT_REFLECTIONS MAX_TRACE_COUNT=64 RT_STEPS=80 BLOCKLIGHT_RESOLUTION=1 TRANSLUCENT_LIGHT_TINT INTERACTIVE_WATER
+ 
+ # Screen Setup
+     screen=<empty> <empty> [INFORMATION] SHADER_STYLE <profile> RP_MODE <empty> <empty> [PERFORMANCE_SETTINGS] [CAMERA_SETTINGS] [LIGHTING_SETTINGS] [ATMOSPHERE_SETTINGS] [MATERIAL_SETTINGS] [OTHER_SETTINGS] [VX_SETTINGS]
