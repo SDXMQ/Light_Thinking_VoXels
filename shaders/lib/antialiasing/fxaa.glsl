@@ -144,9 +144,9 @@ void FXAA311(inout vec3 color) {
 
         float finalOffset = correctVariation ? pixelOffset : 0.0;
 
-        float lumaAverage = (1.0 / 12.0) * (2.0 * (lumaDownUp + lumaLeftRight) + lumaLeftCorners + lumaRightCorners);
+        float lumaAverage = 0.0833333333 * (2.0 * (lumaDownUp + lumaLeftRight) + lumaLeftCorners + lumaRightCorners);
         float subPixelOffset1 = clamp(abs(lumaAverage - lumaCenter) / lumaRange, 0.0, 1.0);
-        float subPixelOffset2 = (-2.0 * subPixelOffset1 + 3.0) * subPixelOffset1 * subPixelOffset1;
+        float subPixelOffset2 = smoothstep(0.0, 1.0, subPixelOffset1);
         float subPixelOffsetFinal = subPixelOffset2 * subPixelOffset2 * subpixelQuality;
 
         finalOffset = max(finalOffset, subPixelOffsetFinal);

@@ -11,7 +11,7 @@
         vec2 i, f = modf(coord, i);
         f = smoothstep(0.5 - cloudRoundness, 0.5 + cloudRoundness, f);
         coord = i + f;
-        return (coord - 0.5) * signCoord / 256.0;
+        return (coord - 0.5) * signCoord * 0.00390625;
     }
 
     vec3 ModifyTracePos(vec3 tracePos, int cloudAltitude) {

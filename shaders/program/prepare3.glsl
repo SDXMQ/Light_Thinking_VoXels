@@ -76,7 +76,7 @@ void main() {
             if (hitDF < 0.1) {
                 writeData.rgb = normalize(distanceFieldGradient(rayHit));
                 vec4 clipHitPos = gbufferProjection * (gbufferModelView * vec4(rayHit - fractCamPos, 1));
-                clipHitPos = 0.5 / clipHitPos.w * clipHitPos + 0.5;
+                clipHitPos = clipHitPos * (0.5 / clipHitPos.w) + 0.5;
                 writeData.a = 1 - clipHitPos.z;
             } else {
                 writeData = vec4(0);

@@ -23,11 +23,10 @@
         vec2 f2 = f * f;
         vec2 f3 = f * f2;
 
-        float c = 0.7;
-        vec2 w0 =        -c  * f3 +  2.0 * c         * f2 - c * f;
-        vec2 w1 =  (2.0 - c) * f3 - (3.0 - c)        * f2         + 1.0;
-        vec2 w2 = -(2.0 - c) * f3 + (3.0 -  2.0 * c) * f2 + c * f;
-        vec2 w3 =         c  * f3 -                c * f2;
+        vec2 w0 = -0.7 * f3 + 1.4 * f2 - 0.7 * f;
+        vec2 w1 =  1.3 * f3 - 2.3 * f2 + 1.0;
+        vec2 w2 = -1.3 * f3 + 1.6 * f2 + 0.7 * f;
+        vec2 w3 =  0.7 * f3 - 0.7 * f2;
 
         vec2 w12 = w1 + w2;
         vec2 tc12 = (centerPosition + w2 / w12) / view;
