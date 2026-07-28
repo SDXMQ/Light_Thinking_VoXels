@@ -522,28 +522,54 @@ void main() {
                 uint(col.x * 32 + 0.5) | (uint(col.y * 32 + 0.5) << 16),
                 uint(col.z * 32 + 0.5)
             );
-            atomicAdd(globalLightHashMap[hash*4], packedMeanPos.x);
-            atomicAdd(globalLightHashMap[hash*4+1], packedMeanPos.y);
-            atomicAdd(globalLightHashMap[hash*4+2], packedCol2.x);
-            atomicAdd(globalLightHashMap[hash*4+3], packedCol2.y);
-            if ((imageAtomicOr(occupancyVolume, coords, 1<<16) >> 16 & 1) == 0) {
-                int lightLevel = getLightLevel(localMat);
-                #if HELD_LIGHTING_MODE == 1
-                    if (isHeldLight) {
-                        lightLevel /= 2;
+            #if defined GL_KHR_shader_subgroup_basic && defined GL_KHR_shader_subgroup_arithmetic && defined GL_KHR_shader_subgroup_ballot
+                uint baseHash = subgroupBroadcastFirst(hash);
+                if (subgroupAll(baseHash == hash)) {
+                    uint sumPos0 = subgroupAdd(packedMeanPos.x);
+                    uint sumPos1 = subgroupAdd(packedMeanPos.y);
+                    uint sumCol0 = subgroupAdd(packedCol2.x);
+                    uint sumCol1 = subgroupAdd(packedCol2.y);
+                    if (subgroupElect()) {
+                        atomicAdd(globalLightHashMap[baseHash*4], sumPos0);
+                        atomicAdd(globalLightHashMap[baseHash*4+1], sumPos1);
+                        atomicAdd(globalLightHashMap[baseHash*4+2], sumCol0);
+                        atomicAdd(globalLightHashMap[baseHash*4+3], sumCol1);
                     }
-                #endif
-                if (lightLevel == 0) lightLevel = max(10, int(31 * lmCoordV[0].x));
-                imageAtomicOr(occupancyVolume, coords, (lightLevel + (localMat/4%32 << 5) << 17));
-                if (
-                    renderStage != MC_RENDER_STAGE_TERRAIN_SOLID &&
-                    renderStage != MC_RENDER_STAGE_TERRAIN_CUTOUT &&
-                    renderStage != MC_RENDER_STAGE_TERRAIN_CUTOUT_MIPPED &&
-                    renderStage != MC_RENDER_STAGE_TERRAIN_TRANSLUCENT
-                ) {
-                    imageAtomicOr(occupancyVolume, coords, 1<<27);
+                } else {
+                    atomicAdd(globalLightHashMap[hash*4], packedMeanPos.x);
+                    atomicAdd(globalLightHashMap[hash*4+1], packedMeanPos.y);
+                    atomicAdd(globalLightHashMap[hash*4+2], packedCol2.x);
+                    atomicAdd(globalLightHashMap[hash*4+3], packedCol2.y);
+                }
+            #else
+                atomicAdd(globalLightHashMap[hash*4], packedMeanPos.x);
+                atomicAdd(globalLightHashMap[hash*4+1], packedMeanPos.y);
+                atomicAdd(globalLightHashMap[hash*4+2], packedCol2.x);
+                atomicAdd(globalLightHashMap[hash*4+3], packedCol2.y);
+            #endif
+
+            // VRAM Early-Exit Guard: Check imageLoad first to avoid VRAM lock if bit 16 is already set
+            if ((imageLoad(occupancyVolume, coords).r >> 16 & 1) == 0) {
+                if ((imageAtomicOr(occupancyVolume, coords, 1<<16) >> 16 & 1) == 0) {
+                    int lightLevel = getLightLevel(localMat);
+                    #if HELD_LIGHTING_MODE == 1
+                        if (isHeldLight) {
+                            lightLevel /= 2;
+                        }
+                    #endif
+                    if (lightLevel == 0) lightLevel = max(10, int(31 * lmCoordV[0].x));
+                    imageAtomicOr(occupancyVolume, coords, (lightLevel + (localMat/4%32 << 5) << 17));
+                    if (
+                        renderStage != MC_RENDER_STAGE_TERRAIN_SOLID &&
+                        renderStage != MC_RENDER_STAGE_TERRAIN_CUTOUT &&
+                        renderStage != MC_RENDER_STAGE_TERRAIN_CUTOUT_MIPPED &&
+                        renderStage != MC_RENDER_STAGE_TERRAIN_TRANSLUCENT
+                    ) {
+                        imageAtomicOr(occupancyVolume, coords, 1<<27);
+                    }
                 }
             }
+
         } else if (shouldVoxelize) {
             for (int i = 0; i < 3; i++) {
                 vec2 relProjectedPos
