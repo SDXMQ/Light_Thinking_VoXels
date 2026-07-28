@@ -310,50 +310,57 @@ void main() {
 
     vec3 writeColor = vec3(0);
     if (insideFrustrum && activeFrame) {
-        for (uint thisLightIndex = 0; thisLightIndex < MAX_LIGHT_COUNT; thisLightIndex++) {
-            if (thisLightIndex >= lightCount) break;
+        uint numLights = uint(min(int(MAX_LIGHT_COUNT), lightCount));
+        for (uint thisLightIndex = 0; thisLightIndex < numLights; thisLightIndex++) {
             vec3 lightPos = lightPositions[thisLightIndex];
             float ndotl0 = infnorm(vxPos - 0.5 * normal - lightPos) < 0.5 || !hasNeighbor ? 1.0 :
-                max(0, (dot(normalize(lightPos - vxPos + 0.5 * normal), normal)));
+                max(0.0, (dot(normalize(lightPos - vxPos + 0.5 * normal), normal)));
             vec3 dir = lightPos - vxPos;
             float dirLenSq = dot(dir, dir);
             float maxTraceLen = ((extraData[thisLightIndex]>>17 & 31)/32.0) * LIGHT_TRACE_LENGTH;
-            if (dirLenSq < maxTraceLen * maxTraceLen && ndotl0 > 0.001) {
-                float dirLen = sqrt(dirLenSq);
-                float lightBrightness = 1.5 * ((extraData[thisLightIndex]>>17 & 31)/32.0);
-                lightBrightness *= lightBrightness;
-                float ndotl = ndotl0 * lightBrightness;
-                vec4 rayHit1 = coneTrace(vxPos, (1.0 - 0.1 / (dirLen + 0.1)) * dir, 0.4 / dirLen, dither);
-                if (rayHit1.w > 0.01) {
-                    #ifdef TRANSLUCENT_LIGHT_TINT
-                        vec3 translucentNormal = vec3(0);
-                        vec3 translucentPos = voxelTrace(
-                            vxPos,
-                            dir,
-                            translucentNormal,
-                            1<<8
-                        ).xyz;
-                        vec3 translucentCol = vec3(1.0);
-                        if (length(translucentPos - vxPos) < dirLen - 1) {
-                            translucentCol = getColor(translucentPos - 0.1 * translucentNormal).rgb;
-                        }
-                    #endif
-                    vec3 lightColor = lightCols[thisLightIndex];
-                    float totalBrightness = ndotl
-                        * distanceFalloff(dirLen / maxTraceLen)
-                        * lightBrightness;
-                    writeColor += lightColor
-                    #ifdef TRANSLUCENT_LIGHT_TINT
-                        * translucentCol
-                    #endif
-                        * rayHit1.w
-                        * totalBrightness;
-                    int thisWeight = int(10000.5 * length(lightColor) * totalBrightness);
-                    atomicMax(lightCoords[thisLightIndex].w, thisWeight);
+            bool needTrace = (dirLenSq < maxTraceLen * maxTraceLen) && (ndotl0 > 0.001);
+            #if defined GL_KHR_shader_subgroup_vote
+            if (subgroupAny(needTrace))
+            #endif
+            {
+                if (needTrace) {
+                    float dirLen = sqrt(dirLenSq);
+                    float lightBrightness = 1.5 * ((extraData[thisLightIndex]>>17 & 31)/32.0);
+                    lightBrightness *= lightBrightness;
+                    float ndotl = ndotl0 * lightBrightness;
+                    vec4 rayHit1 = coneTrace(vxPos, (1.0 - 0.1 / (dirLen + 0.1)) * dir, 0.4 / dirLen, dither);
+                    if (rayHit1.w > 0.01) {
+                        #ifdef TRANSLUCENT_LIGHT_TINT
+                            vec3 translucentNormal = vec3(0);
+                            vec3 translucentPos = voxelTrace(
+                                vxPos,
+                                dir,
+                                translucentNormal,
+                                1<<8
+                            ).xyz;
+                            vec3 translucentCol = vec3(1.0);
+                            if (length(translucentPos - vxPos) < dirLen - 1) {
+                                translucentCol = getColor(translucentPos - 0.1 * translucentNormal).rgb;
+                            }
+                        #endif
+                        vec3 lightColor = lightCols[thisLightIndex];
+                        float totalBrightness = ndotl
+                            * distanceFalloff(dirLen / maxTraceLen)
+                            * lightBrightness;
+                        writeColor += lightColor
+                        #ifdef TRANSLUCENT_LIGHT_TINT
+                            * translucentCol
+                        #endif
+                            * rayHit1.w
+                            * totalBrightness;
+                        int thisWeight = int(10000.5 * length(lightColor) * totalBrightness);
+                        atomicMax(lightCoords[thisLightIndex].w, thisWeight);
+                    }
                 }
             }
         }
     }
+
 
     if (anyInFrustrum) {
         imageStore(irradianceCacheI, coords + ivec3(0, voxelVolumeSize.y, 0), vec4(writeColor, 1));

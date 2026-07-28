@@ -356,70 +356,78 @@ void main() {
     memoryBarrierShared();
 
     vec3 writeColor = vec3(0);
+
     #ifdef BLOCKLIGHT_HIGHLIGHT
         vec3 writeSpecular = vec3(0);
     #endif
     if (validData) {
         uint traceNum = 0;
-        uint thisLightIndex = 0;
-        for (; thisLightIndex < MAX_LIGHT_COUNT; thisLightIndex++) {
-            if (thisLightIndex >= lightCount) break;
+        uint numLights = uint(min(int(MAX_LIGHT_COUNT), lightCount));
+        for (uint thisLightIndex = 0; thisLightIndex < numLights; thisLightIndex++) {
             float lightSize = 0.5;
             vec3 lightPos = lightPositions[thisLightIndex];
             lightSize = clamp(lightSize, 0.01, getDistanceField(lightPos));
             float ndotl0 = max(0.0, dot(normalize(lightPos - vxPos), normalDepthData.xyz));
             vec3 dir = lightPos - biasedVxPos;
-            float dirLen = length(dir);
+            float dirLenSq = dot(dir, dir);
             float thisTraceLen = (extraData[thisLightIndex]>>17 & 31)/32.0;
+            float maxTraceLen = thisTraceLen * LIGHT_TRACE_LENGTH;
+            bool needTrace = (dirLenSq < maxTraceLen * maxTraceLen) && (ndotl0 > 0.001);
 
-            if (dirLen < thisTraceLen * LIGHT_TRACE_LENGTH && ndotl0 > 0.001) {
-                float lightBrightness = 1.5 * thisTraceLen;
-                lightBrightness *= lightBrightness;
-                vec4 rayHit1 = coneTrace(biasedVxPos, (1.0 - 0.1 / (dirLen + 0.1)) * dir, lightSize * LIGHTSOURCE_SIZE_MULT / dirLen, dither);
-                if (rayHit1.w > 0.01) {
-                    #ifdef TRANSLUCENT_LIGHT_TINT
-                        vec3 translucentNormal = vec3(0);
-                        vec3 randomOffset = lightSize * LIGHTSOURCE_SIZE_MULT * randomSphereSample();
-                        vec3 translucentPos = voxelTrace(
-                            biasedVxPos,
-                            dir + randomOffset,
-                            translucentNormal,
-                            1<<8
-                        ).xyz;
-                        vec3 translucentCol = vec3(1.0);
-                        if (length(translucentPos - biasedVxPos) < dirLen - lightSize * LIGHTSOURCE_SIZE_MULT - 0.01) {
-                            translucentCol = getColor(translucentPos - 0.1 * translucentNormal).rgb;
-                        }
-                    #endif
-                    vec3 thisBaseCol =
-                        lightCols[thisLightIndex] *
-                    #ifdef TRANSLUCENT_LIGHT_TINT
-                        translucentCol *
-                    #endif
-                        rayHit1.w *
-                        distanceFalloff(dirLen / (thisTraceLen * LIGHT_TRACE_LENGTH)) *
-                        lightBrightness;
-                    if (!any(isnan(thisBaseCol)) && !isnan(ndotl0)) {
-                        writeColor += thisBaseCol * ndotl0;
-                        #ifdef BLOCKLIGHT_HIGHLIGHT
-
-                            float specularBrightness = GGX(
-                                normalDepthData.xyz,
-                                normalize(playerPos.xyz - gbufferModelViewInverse[3].xyz),
-                                normalize(lightPos - vxPos),
-                                ndotl0,
-                                smoothness
-                            );
-                            if (!isnan(specularBrightness)) {
-                                writeSpecular += thisBaseCol * lightBrightness * specularBrightness;
+            #if defined GL_KHR_shader_subgroup_vote
+            if (subgroupAny(needTrace))
+            #endif
+            {
+                if (needTrace) {
+                    float dirLen = sqrt(dirLenSq);
+                    float lightBrightness = 1.5 * thisTraceLen;
+                    lightBrightness *= lightBrightness;
+                    vec4 rayHit1 = coneTrace(biasedVxPos, (1.0 - 0.1 / (dirLen + 0.1)) * dir, lightSize * LIGHTSOURCE_SIZE_MULT / dirLen, dither);
+                    if (rayHit1.w > 0.01) {
+                        #ifdef TRANSLUCENT_LIGHT_TINT
+                            vec3 translucentNormal = vec3(0);
+                            vec3 randomOffset = lightSize * LIGHTSOURCE_SIZE_MULT * randomSphereSample();
+                            vec3 translucentPos = voxelTrace(
+                                biasedVxPos,
+                                dir + randomOffset,
+                                translucentNormal,
+                                1<<8
+                            ).xyz;
+                            vec3 translucentCol = vec3(1.0);
+                            if (length(translucentPos - biasedVxPos) < dirLen - lightSize * LIGHTSOURCE_SIZE_MULT - 0.01) {
+                                translucentCol = getColor(translucentPos - 0.1 * translucentNormal).rgb;
                             }
                         #endif
-                        int thisWeight = int(10000.5 * length(thisBaseCol) * ndotl0);
-                        atomicMax(lightCoords[thisLightIndex].w, thisWeight);
+                        vec3 thisBaseCol =
+                            lightCols[thisLightIndex] *
+                        #ifdef TRANSLUCENT_LIGHT_TINT
+                            translucentCol *
+                        #endif
+                            rayHit1.w *
+                            distanceFalloff(dirLen / maxTraceLen) *
+                            lightBrightness;
+                        if (!any(isnan(thisBaseCol)) && !isnan(ndotl0)) {
+                            writeColor += thisBaseCol * ndotl0;
+                            #ifdef BLOCKLIGHT_HIGHLIGHT
+
+                                float specularBrightness = GGX(
+                                    normalDepthData.xyz,
+                                    normalize(playerPos.xyz - gbufferModelViewInverse[3].xyz),
+                                    normalize(lightPos - vxPos),
+                                    ndotl0,
+                                    smoothness
+                                );
+                                if (!isnan(specularBrightness)) {
+                                    writeSpecular += thisBaseCol * lightBrightness * specularBrightness;
+                                }
+                            #endif
+                            int thisWeight = int(10000.5 * length(thisBaseCol) * ndotl0);
+                            atomicMax(lightCoords[thisLightIndex].w, thisWeight);
+                        }
                     }
+                    traceNum++;
+                    if (traceNum >= MAX_TRACE_COUNT) break;
                 }
-                traceNum++;
-                if (traceNum >= MAX_TRACE_COUNT) break;
             }
         }
     }
